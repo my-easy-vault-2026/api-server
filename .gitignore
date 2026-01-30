@@ -1,0 +1,9 @@
+*.log
+api-server
+*.csv
+files
+__debug*
+.DS_Store
+.vscode/launch.json
+.idea/
+tempfile/

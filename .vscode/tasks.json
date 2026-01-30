@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "go:build",
+            "type": "shell",
+            "command": "go",
+            "args": [
+                "build",
+                "-o",
+                "${workspaceFolder}/api-server",
+                "."
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": true
+            },
+            "problemMatcher": [
+                "$go"
+            ]
+        }
+    ]
+}
