@@ -109,12 +109,6 @@ func (ad *AssetDailySnapshotDao) Save(ctx context.Context, model *AssetDailySnap
 		db = db.Scopes(c.Scope())
 	}
 
-	hash, err := utils.GetHash(ctx, model.ID, model.UserID, model.Amount.Round(8))
-	if err != nil {
-		return 0, err
-	}
-	model.Signature = hash
-
 	ret := db.Create(model)
 
 	if ret.Error != nil {

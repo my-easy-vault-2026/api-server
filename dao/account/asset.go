@@ -81,21 +81,11 @@ func (ad *AssetDao) AddAssets(ctx context.Context, userId uint64, cardID uint64,
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return utils.NewBusinessError(ctx, common.CODE_DATA_NOT_EXIST)
 		}
-
-		//驗證 現有資料與signature 是否合法
-		isValid, err := utils.IsVerify(ctx, result.ID, result.UserID, result.Amount, result.Signature)
-		if err != nil || !isValid {
-			return utils.NewBusinessError(ctx, common.CODE_INVALID_SIGNATURE)
-		}
 		//取得新的 hash值
 		addAmount := result.Amount.Add(amount)
-		hash, err := utils.GetHash(ctx, result.ID, result.UserID, addAmount.Round(8))
-		if err != nil {
-			return err
-		}
+
 		ret = db.Updates(map[string]interface{}{
-			"amount":    addAmount,
-			"signature": hash,
+			"amount": addAmount,
 		})
 
 	}
@@ -143,21 +133,10 @@ func (ad *AssetDao) DeductAssets(
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return utils.NewBusinessError(ctx, common.CODE_DATA_NOT_EXIST)
 		}
-
-		//驗證 現有資料與signature 是否合法
-		isValid, err := utils.IsVerify(ctx, result.ID, result.UserID, result.Amount, result.Signature)
-		if err != nil || !isValid {
-			return utils.NewBusinessError(ctx, common.CODE_INVALID_SIGNATURE)
-		}
 		//取得新的 hash值
 		subAmount := result.Amount.Sub(amount)
-		hash, err := utils.GetHash(ctx, result.ID, result.UserID, subAmount.Round(8))
-		if err != nil {
-			return err
-		}
 		ret = db.Updates(map[string]interface{}{
-			"amount":    subAmount,
-			"signature": hash,
+			"amount": subAmount,
 		})
 
 	}
@@ -269,19 +248,6 @@ func (ad *AssetDao) FreezeAssets(
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return utils.NewBusinessError(ctx, common.CODE_DATA_NOT_EXIST)
 		}
-
-		//驗證 現有資料與signature 是否合法
-		isValid, err := utils.IsVerify(ctx, result.ID, result.UserID, result.Amount, result.Signature)
-		if err != nil || !isValid {
-			return utils.NewBusinessError(ctx, common.CODE_INVALID_SIGNATURE)
-		}
-		//取得新的 hash值
-		addAmount := result.Amount.Sub(amount)
-		hash, err := utils.GetHash(ctx, result.ID, result.UserID, addAmount.Round(8))
-		if err != nil {
-			return err
-		}
-		updates["signature"] = hash
 	}
 
 	ret := db.Updates(updates)
@@ -331,19 +297,6 @@ func (ad *AssetDao) UnfreezeAssets(
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return utils.NewBusinessError(ctx, common.CODE_DATA_NOT_EXIST)
 		}
-
-		//驗證 現有資料與signature 是否合法
-		isValid, err := utils.IsVerify(ctx, result.ID, result.UserID, result.Amount, result.Signature)
-		if err != nil || !isValid {
-			return utils.NewBusinessError(ctx, common.CODE_INVALID_SIGNATURE)
-		}
-		//取得新的 hash值
-		addAmount := result.Amount.Add(amount)
-		hash, err := utils.GetHash(ctx, result.ID, result.UserID, addAmount.Round(8))
-		if err != nil {
-			return err
-		}
-		updates["signature"] = hash
 	}
 
 	ret := db.Updates(updates)
@@ -997,12 +950,6 @@ func (ad *AssetDao) Save(ctx context.Context, model *Asset, clauses ...utils.Cla
 	for _, c := range clauses {
 		db = db.Scopes(c.Scope())
 	}
-
-	hash, err := utils.GetHash(ctx, model.ID, model.UserID, model.Amount.Round(8))
-	if err != nil {
-		return 0, err
-	}
-	model.Signature = hash
 
 	ret := db.Create(model)
 

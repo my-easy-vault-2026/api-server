@@ -196,33 +196,6 @@ func (as *AccountService) GetTotalAmountByCurrency(ctx context.Context, currency
 	return totalAmount, nil
 }
 
-func (as *AccountService) InitAssetHash(ctx context.Context) {
-
-	assets, err := as.assetDao.Gets(ctx, &accountDao.AssetQuery{
-		Asset: accountDao.Asset{},
-	})
-	if err != nil {
-		logger.Warn("get failed,", err)
-	}
-
-	for _, asset := range assets {
-		hash, err := utils.GetHash(ctx, asset.ID, asset.UserID, asset.Amount)
-		if err != nil {
-			logger.Warn("hash failed,", err)
-		}
-		as.assetDao.Update(ctx, &accountDao.AssetQuery{
-			Asset: accountDao.Asset{
-				ID: asset.ID,
-			},
-			Attrs: accountDao.Asset{
-				Signature: hash,
-			},
-		})
-
-	}
-
-}
-
 func (as *AccountService) ManualTransfer(ctx context.Context, form *entities.ManualTransferForm) (string, error) {
 
 	j, err := json.Marshal(form)
@@ -522,32 +495,6 @@ func (as *AccountService) ManualTransfer(ctx context.Context, form *entities.Man
 	logger.Infof("manual transfered, card ID: [%d] -> [%d], order NO: [%s]", fromAsset.ID, toAsset.ID, orderNO)
 
 	return orderNO, nil
-}
-func (as *AccountService) InitAssetLimit(ctx context.Context) {
-
-	assets, err := as.assetDao.Gets(ctx, &accountDao.AssetQuery{
-		Asset: accountDao.Asset{},
-	})
-	if err != nil {
-		logger.Warn("get failed,", err)
-	}
-
-	for _, asset := range assets {
-		hash, err := utils.GetHash(ctx, asset.ID, asset.UserID, asset.Amount)
-		if err != nil {
-			logger.Warn("hash failed,", err)
-		}
-		as.assetDao.Update(ctx, &accountDao.AssetQuery{
-			Asset: accountDao.Asset{
-				ID: asset.ID,
-			},
-			Attrs: accountDao.Asset{
-				Signature: hash,
-			},
-		})
-
-	}
-
 }
 
 func (as *AccountService) GetAssetCategories(ctx context.Context) ([]*accountDao.AssetCategory, error) {
