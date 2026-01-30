@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"context"
 	"shared-modules/common"
@@ -8,11 +9,13 @@ import (
 
 type CommonHandler struct {
 	websocketService *services.WebsocketService
+	logger           lib.Logger
 }
 
-func NewCommonHandler() *CommonHandler {
+func NewCommonHandler(websocketService *services.WebsocketService, logger lib.Logger) *CommonHandler {
 	return &CommonHandler{
-		websocketService: services.NewWebsocketService(),
+		websocketService: websocketService,
+		logger:           logger,
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	accountDao "api-server/dao/account"
 	cardDao "api-server/dao/card"
 	systemDao "api-server/dao/system"
+	"api-server/lib"
 	"api-server/services"
 	"encoding/json"
 	"fmt"
@@ -24,26 +25,27 @@ import (
 type CardHandler struct {
 	cardService      *services.CardService
 	accountService   *services.AccountService
-	walletService    *services.WalletService
 	coinsdoService   *services.CoinsdoService
 	userService      *services.UserService
 	systemService    *services.SystemService
-	notifyService    *services.NotifyService
 	financialService *services.FinancialService
-	orderService     *services.OrderService
+	logger           lib.Logger
 }
 
-func NewCardHandler() *CardHandler {
+func NewCardHandler(cardService *services.CardService,
+	accountService *services.AccountService,
+	coinsdoService *services.CoinsdoService,
+	userService *services.UserService,
+	systemService *services.SystemService,
+	financialService *services.FinancialService, logger lib.Logger) *CardHandler {
 	return &CardHandler{
-		cardService:      services.NewCardService(),
-		accountService:   services.NewAccountService(),
-		walletService:    services.NewWalletService(),
-		coinsdoService:   services.NewCoinsdoService(),
-		userService:      services.NewUserService(),
-		systemService:    services.NewSystemService(),
-		notifyService:    services.NewNotifyService(),
-		financialService: services.NewFinancialService(),
-		orderService:     services.NewOrderService(),
+		cardService:      cardService,
+		accountService:   accountService,
+		coinsdoService:   coinsdoService,
+		userService:      userService,
+		systemService:    systemService,
+		financialService: financialService,
+		logger:           logger,
 	}
 }
 

@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -12,19 +13,18 @@ import (
 )
 
 // 定时任务由gocron 服务通过定时调用http接口来实现 定时任务url前缀为/tasks/xxx
-type AssetTaskJob struct {
-	cryptoCurrencyService *services.CryptoCurrencyService
-	accountService        *services.AccountService
-	billService           *services.BillService
-	authService           *services.AuthService
+type AssetTaskService struct {
+	accountService *services.AccountService
+	logger         lib.Logger
 }
 
-func NewAssetTaskJob() *AssetTaskJob {
-	return &AssetTaskJob{
-		cryptoCurrencyService: services.NewCryptoCurrencyService(),
-		accountService:        services.NewAccountService(),
-		billService:           services.NewBillService(),
-		authService:           services.NewAuthService(),
+func NewAssetTaskService(
+	accountService *services.AccountService,
+	logger lib.Logger,
+) *AssetTaskService {
+	return &AssetTaskService{
+		accountService: accountService,
+		logger:         logger,
 	}
 }
 
@@ -33,7 +33,7 @@ func NewAssetTaskJob() *AssetTaskJob {
 // @Tags tasks
 // @Param request body entities.ManualTransferForm true "body"
 // @Router /tasks/asset/manualTransfer [post]
-func (tj *AssetTaskJob) ManualTransfer(c *gin.Context) {
+func (tj *AssetTaskService) ManualTransfer(c *gin.Context) {
 
 	form := &entities.ManualTransferForm{}
 
@@ -66,7 +66,7 @@ func (tj *AssetTaskJob) ManualTransfer(c *gin.Context) {
 
 // @Tags			tasks
 // @Router			/tasks/asset/snapshot [post]
-func (tj *AssetTaskJob) AssetSnapshot(c *gin.Context) {
+func (tj *AssetTaskService) AssetSnapshot(c *gin.Context) {
 
 	err := tj.accountService.DailyAssetSnapshot(c)
 	if err != nil {

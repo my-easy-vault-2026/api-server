@@ -8,32 +8,28 @@ import (
 	systemDao "api-server/dao/system"
 	transferDao "api-server/dao/transfer"
 	userDao "api-server/dao/user"
-	walletDao "api-server/dao/wallet"
+	"api-server/lib"
 	"context"
 	"encoding/json"
-	"errors"
 	"math/rand"
 	"shared-modules/common"
 	"shared-modules/entities"
 	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jinzhu/copier"
-	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
 type ITransferConfirm interface {
-	TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, *entities.SendCardMsgData, error)
+	TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, error)
 }
 
 type TransferService struct {
 	transferOrderDao     *orderDao.TransferOrderDao
-	mainCardDao          *cardDao.MainCardDao
 	cardDao              *cardDao.CardDao
 	assetDao             *accountDao.AssetDao
 	parameterDao         *systemDao.ParameterDao
@@ -42,9 +38,8 @@ type TransferService struct {
 	userDao              *userDao.UserDao
 	transactionRecordDao *orderDao.TransactionRecordDao
 	assetTransactionDao  *accountDao.AssetTransactionDao
-	walletAddressDao     *walletDao.WalletAddressDao
 	categoryDao          *accountDao.CategoryDao
-	currencyConfigDao    *orderDao.CurrencyConfigDao
+	logger               lib.Logger
 }
 
 var _ ITransferConfirm = (*TransferService)(nil)
@@ -53,7 +48,6 @@ func NewTransferService() *TransferService {
 	return &TransferService{
 		transferOrderDao:     orderDao.NewTransferOrderDao(),
 		cardDao:              cardDao.NewCardDao(),
-		mainCardDao:          cardDao.NewMainCardDao(),
 		assetDao:             accountDao.NewAssetDao(),
 		parameterDao:         systemDao.NewParameterDao(),
 		cryptoCurrencyDao:    coinsdoDao.NewCryptoCurrencyDao(),
@@ -61,9 +55,7 @@ func NewTransferService() *TransferService {
 		userDao:              userDao.NewUserDao(),
 		transactionRecordDao: orderDao.NewTransactionRecordDao(),
 		assetTransactionDao:  accountDao.NewAssetTransactionDao(),
-		walletAddressDao:     walletDao.NewWalletAddressDao(),
 		categoryDao:          accountDao.NewCategoryDao(),
-		currencyConfigDao:    orderDao.NewCurrencyConfigDao(),
 	}
 }
 
@@ -126,51 +118,6 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
 		}
 		channel = common.TRANSFER_CHANNEL_CARD_ID
-	} else if form.ToAddress != "" && common.Mainnet(0).FromString(form.Mainnet) != 0 {
-		crypto, err := ts.cryptoCurrencyDao.GetByMainnet(ctx, common.Mainnet(0).FromString(form.Mainnet))
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if crypto == nil {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_MAINNET)
-		}
-
-		toAddress := form.ToAddress
-		if crypto.CaseSensitive == common.CASE_SENSITIVE_NO {
-			toAddress = strings.ToLower(form.ToAddress)
-		}
-
-		mainnetAddress, err := ts.walletAddressDao.GetByMainnetAddress(ctx, common.Mainnet(0).FromString(form.Mainnet), toAddress)
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if mainnetAddress == nil {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_ADDRESS)
-		}
-
-		toCard, err = ts.cardDao.GetByUserIDCategoryID(ctx, mainnetAddress.UserID, fromCard.CategoryID)
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if toCard == nil {
-			walletID, err := ts.createWallet(ctx, &entities.CreateWalletForm{
-				CategoryID: uint64(fromCard.Currency),
-				Currency:   fromCard.Currency.String(),
-			}, mainnetAddress.UserID)
-			if err != nil {
-				logger.Warn("create failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			toCard, err = ts.cardDao.GetByID(ctx, walletID)
-			if err != nil {
-				logger.Warn("get failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-		}
-
 	} else if form.ToUserID != 0 || form.ToEmail != "" {
 		var toUser *userDao.User
 		if form.ToUserID != 0 {
@@ -188,43 +135,28 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 		if toUser == nil {
 			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_USER)
 		}
-		mainCard, err := ts.mainCardDao.GetByUserIDCurrency(ctx, toUser.ID, fromCard.Currency)
+
+		toCard, err = ts.cardDao.GetByUserIDCurrencyTypes(ctx, toUser.ID, fromCard.Currency, []common.AssetType{common.ASSET_TYPE_CRYPTO, common.ASSET_TYPE_FIAT})
 		if err != nil {
 			logger.Warn("get failed,", err)
 			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
-		if mainCard != nil {
-			toCard, err = ts.cardDao.GetByID(ctx, mainCard.CardID)
+		if toCard == nil {
+			walletID, err := ts.createWallet(ctx, &entities.CreateWalletForm{
+				CategoryID: uint64(fromCard.Currency),
+				Currency:   fromCard.Currency.String(),
+			}, toUser.ID)
+			if err != nil {
+				logger.Warn("create failed,", err)
+				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			}
+			toCard, err = ts.cardDao.GetByID(ctx, walletID)
 			if err != nil {
 				logger.Warn("get failed,", err)
 				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			if toCard == nil {
-				logger.Error("card not found [%#v],", mainCard, err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-		} else {
-			toCard, err = ts.cardDao.GetByUserIDCurrencyTypes(ctx, toUser.ID, fromCard.Currency, []common.AssetType{common.ASSET_TYPE_CRYPTO, common.ASSET_TYPE_FIAT})
-			if err != nil {
-				logger.Warn("get failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			if toCard == nil {
-				walletID, err := ts.createWallet(ctx, &entities.CreateWalletForm{
-					CategoryID: uint64(fromCard.Currency),
-					Currency:   fromCard.Currency.String(),
-				}, toUser.ID)
-				if err != nil {
-					logger.Warn("create failed,", err)
-					return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-				}
-				toCard, err = ts.cardDao.GetByID(ctx, walletID)
-				if err != nil {
-					logger.Warn("get failed,", err)
-					return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-				}
 			}
 		}
+
 	} else {
 		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INVALID_TARGET)
 	}
@@ -250,75 +182,11 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TO_USER_BLOCKED)
 	}
 
-	currencyConfigs, err := ts.currencyConfigDao.List(ctx)
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-
-	maxLimit := (*decimal.Decimal)(nil)
-	minLimit := (*decimal.Decimal)(nil)
-	limitCurrency := fromCard.Currency
-
-	// 先找全域設定
-	for _, c := range currencyConfigs {
-		if c.Currency == 0 && c.KycLevel == "" {
-			if c.Exchange == common.CURRENCY_CONFIG_STATUS_ACTIVE {
-				if c.TransferMax != nil && c.TransferMax.Valid {
-					maxLimit = &c.TransferMax.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-				if c.TransferMin != nil && c.TransferMin.Valid {
-					minLimit = &c.TransferMin.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-			}
-			break
-		}
-	}
-	// 找個別設定
-	for _, c := range currencyConfigs {
-		if fromCard.Currency == c.Currency && c.KycLevel == "" && c.Mainnet == 0 {
-			if c.Exchange == common.CURRENCY_CONFIG_STATUS_ACTIVE {
-				if c.TransferMax != nil && c.TransferMax.Valid {
-					maxLimit = &c.TransferMax.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-				if c.TransferMin != nil && c.TransferMin.Valid {
-					minLimit = &c.TransferMin.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-			}
-			break
-		}
-	}
-	// 找個別設定 kyc
-	for _, c := range currencyConfigs {
-		if fromCard.Currency == c.Currency && c.KycLevel == fromUser.KycLevel && c.Mainnet == 0 {
-			if c.Exchange == common.CURRENCY_CONFIG_STATUS_ACTIVE {
-				if c.TransferMax != nil && c.TransferMax.Valid {
-					maxLimit = &c.TransferMax.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-				if c.TransferMin != nil && c.TransferMin.Valid {
-					minLimit = &c.TransferMin.Decimal
-					limitCurrency = c.TransferLimitCurrency
-				}
-			}
-			break
-		}
-	}
-
 	toBuyPrice := decimal.NewFromInt(1)
-	limitBuyPrice := decimal.NewFromInt(1)
 	quoteCurrencies := make([]common.Currency, 0, 2)
 	if fromCard.Currency != toCard.Currency {
 		quoteCurrencies = append(quoteCurrencies, toCard.Currency)
 	}
-	if fromCard.Currency != limitCurrency {
-		quoteCurrencies = append(quoteCurrencies, limitCurrency)
-	}
-
 	rates := make([]*utils.ExchangeRate, 0, 2)
 	if len(quoteCurrencies) > 0 {
 		rates, err = utils.ListExchangeRate(ctx, fromCard.Currency, quoteCurrencies)
@@ -330,13 +198,6 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 			if fromCard.Currency != toCard.Currency && rate.QuoteCurrency == toCard.Currency && rate.Purpose == 0 {
 				toBuyPrice = rate.Rate
 				rate.Purpose = common.RATE_PURPOSE_TRANSFER
-				break
-			}
-		}
-		for _, rate := range rates {
-			if fromCard.Currency != limitCurrency && rate.QuoteCurrency == limitCurrency && rate.Purpose == 0 {
-				limitBuyPrice = rate.Rate
-				rate.Purpose = common.RATE_PURPOSE_LIMIT
 				break
 			}
 		}
@@ -455,28 +316,6 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 		exchangeFee = nil
 	}
 
-	if minLimit != nil {
-		if fromAmount.LessThan(minLimit.Mul(limitBuyPrice).Sub(func() decimal.Decimal {
-			if exchangeFee == nil {
-				return decimal.Zero
-			}
-			return *exchangeFee
-		}())) {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_AMOUNT_TOO_LOW)
-		}
-	}
-
-	if maxLimit != nil {
-		if fromAmount.GreaterThan(maxLimit.Mul(limitBuyPrice).Sub(func() decimal.Decimal {
-			if exchangeFee == nil {
-				return decimal.Zero
-			}
-			return *exchangeFee
-		}())) {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_AMOUNT_TOO_HIGH)
-		}
-	}
-
 	if fromAmount.LessThanOrEqual(transferFee.Add(func() decimal.Decimal {
 		if exchangeFee == nil {
 			return decimal.Zero
@@ -582,7 +421,7 @@ func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.T
 	return preview, key, fromPlaces, toPlaces, inverseRate, nil
 }
 
-func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, *entities.SendCardMsgData, error) {
+func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, error) {
 	locker := utils.NewLocker()
 	if err := locker.WaitLock(
 		ctx,
@@ -591,7 +430,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 		utils.Config.System.LockWaitMicroseconds*time.Microsecond,
 	); err != nil {
 		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, form.TransferKey), err)
-		return nil, nil, err
+		return nil, err
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
@@ -602,25 +441,25 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 	user, err := ts.userDao.GetByUserID(ctx, userID)
 	if err != nil {
 		logger.Warn("get failed,", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	if utils.CheckBcryptHash(form.PinCode, user.Salt, user.PinCode) {
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_USER_PIN_CODE_CONFIRMATION_FAILED)
+		return nil, utils.NewBusinessError(ctx, common.CODE_USER_PIN_CODE_CONFIRMATION_FAILED)
 	}
 
 	preview, err := ts.previewDao.Get(ctx, form.TransferKey)
 	if err != nil {
 		logger.Warn("get failed,", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	if preview == nil {
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TRANSFER_EXPIRED)
+		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TRANSFER_EXPIRED)
 	}
 
 	if preview.Channel == common.TRANSFER_CHANNEL_WITHDRAW {
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_CHANGE_TO_WITHDRAW)
+		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_CHANGE_TO_WITHDRAW)
 	}
 
 	defer func() {
@@ -631,31 +470,31 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 
 	if fromAsset, err := ts.assetDao.GetByIDUserID(ctx, preview.FromCardID, userID); err != nil {
 		logger.Warn("get failed,", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	} else if fromAsset == nil {
 		logger.Warn("no card asset, ID: %d", preview.FromCardID)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	} else if fromAsset.Amount.LessThan(preview.FromAmount) {
 		// TODO: transfer failed
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INSUFFICIENT_FUND)
+		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INSUFFICIENT_FUND)
 	}
 
 	fromCard, err := ts.cardDao.GetByID(ctx, preview.FromCardID)
 	if err != nil {
 		logger.Warn("get failed,", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	if fromCard == nil {
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
 	}
 
 	toCard, err := ts.cardDao.GetByID(ctx, preview.ToCardID)
 	if err != nil {
 		logger.Warn("get failed,", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	if toCard == nil {
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
 	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -933,80 +772,21 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 
 	if tErr != nil {
 		logger.Warn("transaction failed,", tErr)
-		return nil, nil, tErr
+		return nil, tErr
 	}
 
 	if err != nil {
 		logger.Warn("transaction failed,", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	logger.Infof("transfered, card ID: [%d] -> [%d], order NO: [%s]", preview.FromCardID, preview.ToCardID, orderNO)
 
 	if fromCard.Type != common.ASSET_TYPE_CARD_PRODUCT {
-		return &orderNO, nil, nil
+		return &orderNO, nil
 	}
 
-	// 判斷是否已發送過通知, 緩存有值代表已發送過， early return
-	amountLowAlertKey := utils.GetCardAmountLowAlertKey(fromCard.ID)
-	_, err = utils.RDB.Get(ctx, amountLowAlertKey).Result()
-	switch {
-	case err == nil:
-		// key 存在：已發送過
-		logger.Infof("card amount low alert already sent, cardId=%d", fromCard.ID)
-		return &orderNO, nil, nil
-
-	case errors.Is(err, redis.Nil):
-		// key 不存在：繼續執行
-		// do nothing
-
-	default:
-		// Redis 系統錯誤
-		logger.Warnf("check card amount low alert cache failed, cardId=%d, err=%v", fromCard.ID, err)
-		return &orderNO, nil, nil
-	}
-
-	// 判斷卡片餘額是否低於警戒線
-	asset, err := ts.assetDao.GetByIDUserID(ctx, fromCard.ID, userID)
-	if err != nil {
-		logger.Warn("get asset failed, cancel topdown card amount notify", err)
-		return &orderNO, nil, nil
-	}
-
-	param, err := ts.parameterDao.GetByKey(ctx, common.PARAMETER_KEY_CARD_AMOUNT_LOW_LIMIT_SETTING)
-	if err != nil {
-		logger.Warn("get card amount low limit failed,", err)
-		param = &systemDao.Parameter{
-			Value: "10",
-		}
-	}
-	if param == nil {
-		logger.Error("get card amount low limit failed, default value used")
-		param = &systemDao.Parameter{
-			Value: "10",
-		}
-	}
-
-	amountLowLimit, err := decimal.NewFromString(param.Value)
-	if err != nil {
-		logger.Warn("parse card amount low limit failed, cancel topdown card amount notify", err)
-		return &orderNO, nil, nil
-	}
-
-	if asset.Amount.LessThan(amountLowLimit) {
-		card := &entities.NotifyCard{}
-		if err := copier.Copy(&card, fromCard); err != nil {
-			logger.Warnf("copy card info failed, cancel notify, cardId=%d, err=%v", fromCard.ID, err)
-			return &orderNO, nil, nil
-		}
-		sendData := &entities.SendCardMsgData{
-			Card:      card,
-			MsgOPCode: common.MSG_OPCODE_CARD_AMOUNT_LOW_WARNING,
-		}
-		return &orderNO, sendData, nil
-	}
-
-	return &orderNO, nil, nil
+	return &orderNO, nil
 }
 
 func (ts *TransferService) createWallet(ctx context.Context, form *entities.CreateWalletForm, userID uint64) (uint64, error) {

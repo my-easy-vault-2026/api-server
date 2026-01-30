@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"context"
 	"errors"
@@ -18,11 +19,13 @@ import (
 
 type WebsocketHandler struct {
 	websocketService *services.WebsocketService
+	logger           lib.Logger
 }
 
-func NewWebsocketHandler() *WebsocketHandler {
+func NewWebsocketHandler(websockerService *services.WebsocketService, logger lib.Logger) *WebsocketHandler {
 	return &WebsocketHandler{
-		websocketService: services.NewWebsocketService(),
+		websocketService: websockerService,
+		logger:           logger,
 	}
 }
 

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -12,20 +13,15 @@ import (
 	"github.com/jinzhu/copier"
 )
 
-var kycLevels = []common.KYCLevel{
-	common.KYC_LEVEL_0,
-	common.KYC_LEVEL_1,
-	common.KYC_LEVEL_2,
-	common.KYC_LEVEL_3,
-}
-
 type QuoteHandler struct {
 	quoteService *services.QuoteService
+	logger       lib.Logger
 }
 
-func NewQuoteHandler() *QuoteHandler {
+func NewQuoteHandler(quoteService *services.QuoteService, logger lib.Logger) *QuoteHandler {
 	return &QuoteHandler{
-		quoteService: services.NewQuoteService(),
+		quoteService: quoteService,
+		logger:       logger,
 	}
 }
 

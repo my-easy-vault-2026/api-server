@@ -8,6 +8,7 @@ import (
 	orderDao "api-server/dao/order"
 	systemDao "api-server/dao/system"
 	userDao "api-server/dao/user"
+	"api-server/lib"
 	"context"
 	"encoding/json"
 	"math/rand"
@@ -35,21 +36,37 @@ type ExchangeService struct {
 	assetTransactionDao  *accountDao.AssetTransactionDao
 	categoryDao          *accountDao.CategoryDao
 	currencyConfigDao    *orderDao.CurrencyConfigDao
+	logger               lib.Logger
 }
 
-func NewExchangeService() *ExchangeService {
+func NewExchangeService(
+	exchangeOrderDao *orderDao.ExchangeOrderDao,
+	cardDao *cardDao.CardDao,
+	assetDao *accountDao.AssetDao,
+	parameterDao *systemDao.ParameterDao,
+	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao,
+	previewDao *exchangeDao.PreviewDao,
+	userDao *userDao.UserDao,
+	transactionRecordDao *orderDao.TransactionRecordDao,
+	assetTransactionDao *accountDao.AssetTransactionDao,
+	categoryDao *accountDao.CategoryDao,
+	currencyConfigDao *orderDao.CurrencyConfigDao,
+	logger lib.Logger,
+) *ExchangeService {
+
 	return &ExchangeService{
-		exchangeOrderDao:     orderDao.NewExchangeOrderDao(),
-		cardDao:              cardDao.NewCardDao(),
-		assetDao:             accountDao.NewAssetDao(),
-		parameterDao:         systemDao.NewParameterDao(),
-		cryptoCurrencyDao:    coinsdoDao.NewCryptoCurrencyDao(),
-		previewDao:           exchangeDao.NewPreviewDao(),
-		userDao:              userDao.NewUserDao(),
-		transactionRecordDao: orderDao.NewTransactionRecordDao(),
-		assetTransactionDao:  accountDao.NewAssetTransactionDao(),
-		categoryDao:          accountDao.NewCategoryDao(),
-		currencyConfigDao:    orderDao.NewCurrencyConfigDao(),
+		exchangeOrderDao:     exchangeOrderDao,
+		cardDao:              cardDao,
+		assetDao:             assetDao,
+		parameterDao:         parameterDao,
+		cryptoCurrencyDao:    cryptoCurrencyDao,
+		previewDao:           previewDao,
+		userDao:              userDao,
+		transactionRecordDao: transactionRecordDao,
+		assetTransactionDao:  assetTransactionDao,
+		categoryDao:          categoryDao,
+		currencyConfigDao:    currencyConfigDao,
+		logger:               logger,
 	}
 }
 

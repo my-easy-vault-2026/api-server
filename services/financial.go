@@ -8,6 +8,7 @@ import (
 	orderDao "api-server/dao/order"
 	systemDao "api-server/dao/system"
 	userDao "api-server/dao/user"
+	"api-server/lib"
 	"context"
 	"math/rand"
 	"shared-modules/common"
@@ -39,24 +40,43 @@ type FinancialService struct {
 	assetTransactionDao       *accountDao.AssetTransactionDao
 	financialTransferOrderDao *orderDao.FinancialTransferOrderDao
 	assetSnapshotDao          *financialDao.AssetSnapshotDao
+	logger                    lib.Logger
 }
 
-func NewFinancialService() *FinancialService {
+func NewFinancialService(
+	assetDao *accountDao.AssetDao,
+	categoryDao *accountDao.CategoryDao,
+	userDao *userDao.UserDao,
+	snapshotBalanceDao *financialDao.SnapshotBalanceDao,
+	parameterDao *systemDao.ParameterDao,
+	financialProductDao *financialDao.FinancialProductDao,
+	interestRateDao *financialDao.InterestRateDao,
+	cardDao *cardDao.CardDao,
+	interestOrderDao *orderDao.InterestOrderDao,
+	transactionRecordDao *orderDao.TransactionRecordDao,
+	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao,
+	assetTransactionDao *accountDao.AssetTransactionDao,
+	financialTransferOrderDao *orderDao.FinancialTransferOrderDao,
+	assetSnapshotDao *financialDao.AssetSnapshotDao,
+	logger lib.Logger,
+) *FinancialService {
+
 	return &FinancialService{
-		assetDao:                  accountDao.NewAssetDao(),
-		categoryDao:               accountDao.NewCategoryDao(),
-		userDao:                   userDao.NewUserDao(),
-		snapshotBalanceDao:        financialDao.NewSnapshotBalanceDao(),
-		parameterDao:              systemDao.NewParameterDao(),
-		financialProductDao:       financialDao.NewFinancialProductDao(),
-		interestRateDao:           financialDao.NewInterestRateDao(),
-		cardDao:                   cardDao.NewCardDao(),
-		interestOrderDao:          orderDao.NewInterestOrderDao(),
-		transactionRecordDao:      orderDao.NewTransactionRecordDao(),
-		cryptoCurrencyDao:         coinsdoDao.NewCryptoCurrencyDao(),
-		assetTransactionDao:       accountDao.NewAssetTransactionDao(),
-		financialTransferOrderDao: orderDao.NewFinancialTransferOrderDao(),
-		assetSnapshotDao:          financialDao.NewAssetSnapshotDao(),
+		assetDao:                  assetDao,
+		categoryDao:               categoryDao,
+		userDao:                   userDao,
+		snapshotBalanceDao:        snapshotBalanceDao,
+		parameterDao:              parameterDao,
+		financialProductDao:       financialProductDao,
+		interestRateDao:           interestRateDao,
+		cardDao:                   cardDao,
+		interestOrderDao:          interestOrderDao,
+		transactionRecordDao:      transactionRecordDao,
+		cryptoCurrencyDao:         cryptoCurrencyDao,
+		assetTransactionDao:       assetTransactionDao,
+		financialTransferOrderDao: financialTransferOrderDao,
+		assetSnapshotDao:          assetSnapshotDao,
+		logger:                    logger,
 	}
 }
 

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"api-server/lib"
 	"api-server/services"
 
 	"github.com/gin-gonic/gin"
@@ -8,11 +9,13 @@ import (
 
 type TestHandler struct {
 	testService *services.TestService
+	logger      lib.Logger
 }
 
-func NewTestHandler() *TestHandler {
+func NewTestHandler(testService *services.TestService, logger lib.Logger) *TestHandler {
 	return &TestHandler{
 		testService: services.NewTestService(),
+		logger:      logger,
 	}
 }
 

@@ -1,15 +1,17 @@
 package services
 
 import (
+	"api-server/lib"
 	"context"
 )
 
 type TestService struct {
+	logger lib.Logger
 }
 
-func NewTestService() *TestService {
+func NewTestService(logger lib.Logger) *TestService {
 
-	return &TestService{}
+	return &TestService{logger: logger}
 }
 
 func (cs *TestService) ForTest(ctx context.Context) error {

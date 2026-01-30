@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -17,11 +18,13 @@ import (
 
 type AccountHandler struct {
 	accountService *services.AccountService
+	logger         lib.Logger
 }
 
-func NewAccountHandler() *AccountHandler {
+func NewAccountHandler(userService *services.AccountService, logger lib.Logger) *AccountHandler {
 	return &AccountHandler{
-		accountService: services.NewAccountService(),
+		accountService: userService,
+		logger:         logger,
 	}
 }
 

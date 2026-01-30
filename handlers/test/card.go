@@ -1,6 +1,7 @@
 package test
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/entities"
 	"shared-modules/utils"
@@ -11,12 +12,16 @@ import (
 type CardHandler struct {
 	cardService    *services.CardService
 	accountService *services.AccountService
+	logger         lib.Logger
 }
 
-func NewCardHandler() *CardHandler {
+func NewCardHandler(cardService *services.CardService,
+	accountService *services.AccountService,
+	logger lib.Logger) *CardHandler {
 	return &CardHandler{
-		cardService:    services.NewCardService(),
-		accountService: services.NewAccountService(),
+		cardService:    cardService,
+		accountService: accountService,
+		logger:         logger,
 	}
 }
 

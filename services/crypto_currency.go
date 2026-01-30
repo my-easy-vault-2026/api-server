@@ -9,11 +9,13 @@ import (
 
 type CryptoCurrencyService struct {
 	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao
+	logger            logger.Logger
 }
 
-func NewCryptoCurrencyService() *CryptoCurrencyService {
+func NewCryptoCurrencyService(cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao, logger logger.Logger) *CryptoCurrencyService {
 	return &CryptoCurrencyService{
-		cryptoCurrencyDao: coinsdoDao.NewCryptoCurrencyDao(),
+		cryptoCurrencyDao: cryptoCurrencyDao,
+		logger:            logger,
 	}
 }
 

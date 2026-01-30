@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"bytes"
 	"encoding/json"
@@ -17,23 +18,20 @@ import (
 )
 
 type UserHandler struct {
-	userService    *services.UserService
-	authService    *services.AuthService
-	accountService *services.AccountService
-	walletService  *services.WalletService
-	cardService    *services.CardService
-	orderService   *services.OrderService
+	userService *services.UserService
+	authService *services.AuthService
+	logger      lib.Logger
 }
 
-func NewUserHandler() *UserHandler {
+func NewUserHandler(userService *services.UserService,
+	authService *services.AuthService,
+	logger lib.Logger) *UserHandler {
 	return &UserHandler{
-		userService:    services.NewUserService(),
-		authService:    services.NewAuthService(),
-		accountService: services.NewAccountService(),
-		walletService:  services.NewWalletService(),
-		cardService:    services.NewCardService(),
-		orderService:   services.NewOrderService(),
+		userService: userService,
+		authService: authService,
+		logger:      logger,
 	}
+
 }
 
 // @Param			request			body		entities.SetPinCodeForm	true	"body"
@@ -254,20 +252,6 @@ func (uh *UserHandler) GetInfo(c *gin.Context) {
 	ret.UpdatedAt = user.UpdatedAt.UnixMilli()
 	ret.ReferrerCode = user.PromotionCode
 	ret.GroupIDs = groupIDs
-
-	// 取得用戶 e卡，如果有 e卡 才返回 promotion資料
-	cardForm := &entities.ListCardForm{
-		AssetTypeIn: []common.AssetType{common.ASSET_TYPE_CARD_PRODUCT},
-	}
-	listCard, err := uh.cardService.ListCard(c, cardForm, common.CURRENCY_USD, userID)
-	if err != nil {
-		logger.Warnf("fail to get main card, ", err)
-	}
-
-	if len(listCard) == 0 {
-		utils.ReData(c, ret)
-		return
-	}
 
 	utils.ReData(c, ret)
 }

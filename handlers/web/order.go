@@ -2,6 +2,7 @@ package web
 
 import (
 	cardDao "api-server/dao/card"
+	"api-server/lib"
 	"api-server/services"
 	"bytes"
 	"encoding/json"
@@ -20,17 +21,17 @@ type OrderHandler struct {
 	orderService   *services.OrderService
 	coinsdoService *services.CoinsdoService
 	cardService    *services.CardService
-	systemService  *services.SystemService
 	userService    *services.UserService
+	logger         lib.Logger
 }
 
-func NewOrderHandler() *OrderHandler {
+func NewOrderHandler(orderService *services.OrderService, coinsdoService *services.CoinsdoService, cardService *services.CardService, userService *services.UserService, logger lib.Logger) *OrderHandler {
 	return &OrderHandler{
-		orderService:   services.NewOrderService(),
-		coinsdoService: services.NewCoinsdoService(),
-		cardService:    services.NewCardService(),
-		systemService:  services.NewSystemService(),
-		userService:    services.NewUserService(),
+		orderService:   orderService,
+		coinsdoService: coinsdoService,
+		cardService:    cardService,
+		userService:    userService,
+		logger:         logger,
 	}
 }
 

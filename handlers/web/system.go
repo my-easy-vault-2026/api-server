@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -14,11 +15,13 @@ import (
 
 type SystemHandler struct {
 	systemService *services.SystemService
+	logger        lib.Logger
 }
 
-func NewSystemHandler() *SystemHandler {
+func NewSystemHandler(systemService *services.SystemService, logger lib.Logger) *SystemHandler {
 	return &SystemHandler{
-		systemService: services.NewSystemService(),
+		systemService: systemService,
+		logger:        logger,
 	}
 }
 

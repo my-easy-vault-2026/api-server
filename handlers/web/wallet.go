@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -14,20 +15,14 @@ import (
 )
 
 type WalletHandler struct {
-	accountService        *services.AccountService
-	walletService         *services.WalletService
-	coinsdoService        *services.CoinsdoService
-	cryptoCurrencyService *services.CryptoCurrencyService
-	cardService           *services.CardService
+	walletService *services.WalletService
+	logger        lib.Logger
 }
 
-func NewWalletHandler() *WalletHandler {
+func NewWalletHandler(walletService *services.WalletService, logger lib.Logger) *WalletHandler {
 	return &WalletHandler{
-		accountService:        services.NewAccountService(),
-		walletService:         services.NewWalletService(),
-		coinsdoService:        services.NewCoinsdoService(),
-		cryptoCurrencyService: services.NewCryptoCurrencyService(),
-		cardService:           services.NewCardService(),
+		walletService: walletService,
+		logger:        logger,
 	}
 }
 

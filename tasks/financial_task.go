@@ -12,20 +12,25 @@ import (
 )
 
 // 定时任务由gocron 服务通过定时调用http接口来实现 定时任务url前缀为/tasks/xxx
-type FinancialTaskJob struct {
+type FinancialTaskService struct {
 	financialService *services.FinancialService
+	logger           logger.Logger
 }
 
-func NewFinancialTaskJob() *FinancialTaskJob {
-	return &FinancialTaskJob{
-		financialService: services.NewFinancialService(),
+func NewFinancialTaskService(
+	financialService *services.FinancialService,
+	logger logger.Logger,
+) *FinancialTaskService {
+	return &FinancialTaskService{
+		financialService: financialService,
+		logger:           logger,
 	}
 }
 
 // @Tags			tasks
 // @Router			/tasks/financial/autoYield/checkSnapshot [post]
 // @Param			request			body		entities.AutoYieldCheckSnapshotForm	false	"body"
-func (tj *FinancialTaskJob) AutoYieldCheckSnapshot(c *gin.Context) {
+func (tj *FinancialTaskService) AutoYieldCheckSnapshot(c *gin.Context) {
 
 	form := &entities.AutoYieldCheckSnapshotForm{}
 
@@ -52,7 +57,7 @@ func (tj *FinancialTaskJob) AutoYieldCheckSnapshot(c *gin.Context) {
 // @Tags			tasks
 // @Router			/tasks/financial/autoYield/snapshot [post]
 // @Param			request			body		entities.AutoYieldSnapshotForm	false	"body"
-func (tj *FinancialTaskJob) AutoYieldSnapshot(c *gin.Context) {
+func (tj *FinancialTaskService) AutoYieldSnapshot(c *gin.Context) {
 
 	now := time.Now().Truncate(time.Minute * 60)
 
@@ -78,7 +83,7 @@ func (tj *FinancialTaskJob) AutoYieldSnapshot(c *gin.Context) {
 // @Tags			tasks
 // @Param			request			body		entities.AutoYieldDistributeForm	false	"body"
 // @Router			/tasks/financial/autoYield/distribute [post]
-func (tj *FinancialTaskJob) AutoYieldDistribute(c *gin.Context) {
+func (tj *FinancialTaskService) AutoYieldDistribute(c *gin.Context) {
 
 	now := time.Now().Truncate(time.Minute * 60)
 

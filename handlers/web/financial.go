@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -14,15 +15,15 @@ import (
 
 type FinancialHandler struct {
 	financialService *services.FinancialService
-	systemService    *services.SystemService
 	coinsdoService   *services.CoinsdoService
+	logger           lib.Logger
 }
 
-func NewFinancialHandler() *FinancialHandler {
+func NewFinancialHandler(financialService *services.FinancialService, coinsdoService *services.CoinsdoService, logger lib.Logger) *FinancialHandler {
 	return &FinancialHandler{
-		financialService: services.NewFinancialService(),
-		systemService:    services.NewSystemService(),
-		coinsdoService:   services.NewCoinsdoService(),
+		financialService: financialService,
+		coinsdoService:   coinsdoService,
+		logger:           logger,
 	}
 }
 

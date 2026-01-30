@@ -1,36 +1,24 @@
 package services
 
 import (
-	accountDao "api-server/dao/account"
-	cardDao "api-server/dao/card"
-	walletDao "api-server/dao/wallet"
+	"api-server/lib"
 	"context"
-	"errors"
 	"shared-modules/common"
 	"shared-modules/logger"
 	"shared-modules/utils"
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/redis/go-redis/v9"
 )
 
 type WebsocketService struct {
-	assetCategoryDao *accountDao.AssetCategoryDao
-	categoryDao      *accountDao.CategoryDao
-	assetDao         *accountDao.AssetDao
-	cardDao          *cardDao.CardDao
-	walletAddressDao *walletDao.WalletAddressDao
+	logger lib.Logger
 }
 
-func NewWebsocketService() *WebsocketService {
+func NewWebsocketService(logger lib.Logger) *WebsocketService {
 
 	return &WebsocketService{
-		assetCategoryDao: accountDao.NewAssetCategoryDao(),
-		categoryDao:      accountDao.NewCategoryDao(),
-		assetDao:         accountDao.NewAssetDao(),
-		cardDao:          cardDao.NewCardDao(),
-		walletAddressDao: walletDao.NewWalletAddressDao(),
+		logger: logger,
 	}
 }
 
@@ -64,26 +52,7 @@ func (ws *WebsocketService) Connect(ctx context.Context, conn *websocket.Conn, u
 	}
 }
 
-func (ws *WebsocketService) ForwardThreedsToInstance(ctx context.Context, msg *common.Msg) error {
-
-	n, err := utils.RDB.Get(ctx, utils.GetWebsocketNodeKey(msg.UserID)).Result()
-	if errors.Is(err, redis.Nil) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	msg.OP = common.MSG_OPCODE_FORWARD_3DS_BALANCED
-
-	err = utils.MQUtil.Push(ctx, "websocket:"+n, msg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (ws *WebsocketService) ForwardThreeds(ctx context.Context, msg *common.Msg) error {
+func (ws *WebsocketService) ForwardMessage(ctx context.Context, msg *common.Msg) error {
 
 	c := utils.Ws.Bucket(msg.UserID).Channel(msg.UserID)
 	if c == nil {

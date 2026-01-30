@@ -6,6 +6,7 @@ import (
 	orderDao "api-server/dao/order"
 	systemDao "api-server/dao/system"
 	userDao "api-server/dao/user"
+	"api-server/lib"
 	"context"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -32,26 +33,36 @@ type AccountService struct {
 	manualOrderDao        *orderDao.ManualOrderDao
 	transactionRecordDao  *orderDao.TransactionRecordDao
 	assetTransactionDao   *accountDao.AssetTransactionDao
-	billDao               *accountDao.BillDao
 	userDao               *userDao.UserDao
 	parameterDao          *systemDao.ParameterDao
 	cryptoCurrencyDao     *coinsdoDao.CryptoCurrencyDao
+	logger                lib.Logger
 }
 
-func NewAccountService() *AccountService {
+func NewAccountService(assetDao *accountDao.AssetDao,
+	assetDailySnapshotDao *accountDao.AssetDailySnapshotDao,
+	assetCategoryDao *accountDao.AssetCategoryDao,
+	categoryDao *accountDao.CategoryDao,
+	manualOrderDao *orderDao.ManualOrderDao,
+	transactionRecordDao *orderDao.TransactionRecordDao,
+	assetTransactionDao *accountDao.AssetTransactionDao,
+	userDao *userDao.UserDao,
+	parameterDao *systemDao.ParameterDao,
+	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao,
+	logger lib.Logger) *AccountService {
 
 	return &AccountService{
-		assetDao:              accountDao.NewAssetDao(),
-		assetDailySnapshotDao: accountDao.NewAssetDailySnapshotDao(),
-		assetCategoryDao:      accountDao.NewAssetCategoryDao(),
-		categoryDao:           accountDao.NewCategoryDao(),
-		manualOrderDao:        orderDao.NewManualOrderDao(),
-		transactionRecordDao:  orderDao.NewTransactionRecordDao(),
-		assetTransactionDao:   accountDao.NewAssetTransactionDao(),
-		billDao:               accountDao.NewBillDao(),
-		userDao:               userDao.NewUserDao(),
-		parameterDao:          systemDao.NewParameterDao(),
-		cryptoCurrencyDao:     coinsdoDao.NewCryptoCurrencyDao(),
+		assetDao:              assetDao,
+		assetDailySnapshotDao: assetDailySnapshotDao,
+		assetCategoryDao:      assetCategoryDao,
+		categoryDao:           categoryDao,
+		manualOrderDao:        manualOrderDao,
+		transactionRecordDao:  transactionRecordDao,
+		assetTransactionDao:   assetTransactionDao,
+		userDao:               userDao,
+		parameterDao:          parameterDao,
+		cryptoCurrencyDao:     cryptoCurrencyDao,
+		logger:                logger,
 	}
 }
 

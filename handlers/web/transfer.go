@@ -2,6 +2,7 @@ package web
 
 import (
 	accountDao "api-server/dao/account"
+	"api-server/lib"
 	"api-server/services"
 	"bytes"
 	"context"
@@ -21,15 +22,13 @@ import (
 
 type TransferHandler struct {
 	transferService *services.TransferService
-	notifyService   *services.NotifyService
-	userService     *services.UserService
+	logger          lib.Logger
 }
 
-func NewTransferHandler() *TransferHandler {
+func NewTransferHandler(transferService *services.TransferService, logger lib.Logger) *TransferHandler {
 	return &TransferHandler{
-		transferService: services.NewTransferService(),
-		notifyService:   services.NewNotifyService(),
-		userService:     services.NewUserService(),
+		transferService: transferService,
+		logger:          logger,
 	}
 }
 
@@ -190,45 +189,10 @@ func (th *TransferHandler) TransferConfirm(c *gin.Context) {
 		return
 	}
 
-	orderNO, cardNotify, err := th.getTransferConfirmService(c, fromCategory, toCategory).TransferConfirm(c, form, userID)
+	orderNO, err := th.getTransferConfirmService(c, fromCategory, toCategory).TransferConfirm(c, form, userID)
 	if err != nil {
 		utils.ReError(c, err)
 		return
-	}
-
-	// 餘額過低推播通知
-	if cardNotify != nil && cardNotify.Card != nil {
-		reqID, _ := utils.GetMDCValue("reqId")
-		language := common.Language(0).FromString(c.Request.Header.Get("Accept-Language"))
-
-		go func(userID uint64, language common.Language, cardNotify *entities.SendCardMsgData) {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			email, err := th.userService.GetEmailByUserID(c, userID)
-			if err != nil {
-				logger.Warnf("get user email error, userID=%d, error:%v", userID, err)
-				return
-			}
-			utils.SetMDCValue("reqId", reqID)
-			cardNo := "••••" + cardNotify.Card.PANNumber[len(cardNotify.Card.PANNumber)-4:]
-
-			notifyVO := &entities.NotifyVO{
-				CardNo: cardNo,
-			}
-			sendVO := &entities.SendVO{
-				Email:    email,
-				Code:     cardNotify.MsgOPCode,
-				UserID:   userID,
-				Language: language,
-			}
-
-			err = th.notifyService.SendCardAmountLow(ctx, notifyVO, sendVO, cardNotify.Card.ID)
-			if err != nil {
-				logger.Warnf("send card amount low notify error, cardId=%d userID=%d, error:%v", cardNotify.Card.ID, userID, err)
-			}
-		}(userID, language, cardNotify)
-
 	}
 
 	utils.ReData(

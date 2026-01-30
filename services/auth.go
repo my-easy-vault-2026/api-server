@@ -1,11 +1,11 @@
 package services
 
 import (
-	accountDao "api-server/dao/account"
 	authDao "api-server/dao/auth"
 	cardDao "api-server/dao/card"
 	systemDao "api-server/dao/system"
 	userDao "api-server/dao/user"
+	"api-server/lib"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -36,25 +36,27 @@ type AuthService struct {
 	userGroupDao    *userDao.UserGroupDao
 	apiAuthorityDao *authDao.APIAuthorityDao
 	parameterDao    *systemDao.ParameterDao
-	userLoginLogDao *userDao.UserLoginLogDao
-	categoryDao     *accountDao.CategoryDao
-	assetDao        *accountDao.AssetDao
-	mainCardDao     *cardDao.MainCardDao
 	cardDao         *cardDao.CardDao
+	logger          lib.Logger
 }
 
-func NewAuthService() *AuthService {
+func NewAuthService(
+	tokenDao *authDao.TokenDao,
+	userDao *userDao.UserDao,
+	userGroupDao *userDao.UserGroupDao,
+	apiAuthorityDao *authDao.APIAuthorityDao,
+	parameterDao *systemDao.ParameterDao,
+	cardDao *cardDao.CardDao,
+	logger lib.Logger,
+) *AuthService {
 	return &AuthService{
-		tokenDao:        authDao.NewTokenDao(),
-		userDao:         userDao.NewUserDao(),
-		userGroupDao:    userDao.NewUserGroupDao(),
-		apiAuthorityDao: authDao.NewAPIAuthorityDao(),
-		parameterDao:    systemDao.NewParameterDao(),
-		userLoginLogDao: userDao.NewUserLoginLogDao(),
-		categoryDao:     accountDao.NewCategoryDao(),
-		assetDao:        accountDao.NewAssetDao(),
-		mainCardDao:     cardDao.NewMainCardDao(),
-		cardDao:         cardDao.NewCardDao(),
+		tokenDao:        tokenDao,
+		userDao:         userDao,
+		userGroupDao:    userGroupDao,
+		apiAuthorityDao: apiAuthorityDao,
+		parameterDao:    parameterDao,
+		cardDao:         cardDao,
+		logger:          logger,
 	}
 }
 
@@ -297,21 +299,6 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user userDao.User,
 	if setRet.Err() != nil {
 		logger.Warn("deviceTokenKey set failed", setRet.Err())
 		return "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-
-	//記錄登入資訊
-	_, err = as.userLoginLogDao.Save(ctx, &userDao.UserLoginLog{
-		ID:         utils.SnowFlakeID.Generate(),
-		UserID:     user.ID,
-		Platform:   form.Platform,
-		DeviceName: form.DeviceName,
-		DeviceID:   form.DeviceID,
-		LoginIP:    form.Ip,
-		AppVersion: form.AppVersion,
-	})
-
-	if err != nil {
-		logger.Warn("user login log save failed", err)
 	}
 
 	return key, expiredAt, nil

@@ -4,6 +4,7 @@ import (
 	accountDao "api-server/dao/account"
 	cardDao "api-server/dao/card"
 	userDao "api-server/dao/user"
+	"api-server/lib"
 	"api-server/services"
 	"encoding/json"
 	"net/http"
@@ -22,14 +23,20 @@ type AccountHandler struct {
 	assetDao       *accountDao.AssetDao
 	userDao        *userDao.UserDao
 	cardDao        *cardDao.CardDao
+	logger         lib.Logger
 }
 
-func NewAccountHandler() *AccountHandler {
+func NewAccountHandler(accountService *services.AccountService,
+	assetDao *accountDao.AssetDao,
+	userDao *userDao.UserDao,
+	cardDao *cardDao.CardDao,
+	logger lib.Logger) *AccountHandler {
 	return &AccountHandler{
-		accountService: services.NewAccountService(),
-		assetDao:       accountDao.NewAssetDao(),
-		userDao:        userDao.NewUserDao(),
-		cardDao:        cardDao.NewCardDao(),
+		accountService: accountService,
+		assetDao:       assetDao,
+		userDao:        userDao,
+		cardDao:        cardDao,
+		logger:         logger,
 	}
 }
 

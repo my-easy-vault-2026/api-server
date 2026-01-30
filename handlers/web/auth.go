@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -14,20 +15,14 @@ import (
 )
 
 type AuthHandler struct {
-	authService    *services.AuthService
-	notifyService  *services.NotifyService
-	userService    *services.UserService
-	accountService *services.AccountService
-	walletService  *services.WalletService
+	authService *services.AuthService
+	logger      lib.Logger
 }
 
-func NewAuthHandler() *AuthHandler {
+func NewAuthHandler(authServ *services.AuthService, logger lib.Logger) *AuthHandler {
 	return &AuthHandler{
-		authService:    services.NewAuthService(),
-		notifyService:  services.NewNotifyService(),
-		userService:    services.NewUserService(),
-		accountService: services.NewAccountService(),
-		walletService:  services.NewWalletService(),
+		authService: authServ,
+		logger:      logger,
 	}
 }
 
