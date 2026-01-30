@@ -1,9 +1,6 @@
 package entities
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/shopspring/decimal"
 
 	"shared-modules/utils"
@@ -93,34 +90,4 @@ func (vo BitopRateResponseVO) Get(src string) float64 {
 		}
 	}
 	return 0.0
-}
-
-// binance
-type BinanceRateResponseVO []BinanceRateResponseUnitVO
-
-type BinanceRateResponseUnitVO struct {
-	Symbol string `json:"symbol"` // "srcdest" currency pair
-	Price  string `json:"price"`
-}
-
-func (vos BinanceRateResponseVO) Gets(src string) BinanceRateResponseVO {
-	var resp []BinanceRateResponseUnitVO
-	for _, v := range vos {
-		if strings.HasPrefix(v.Symbol, src) {
-			r := v
-			resp = append(resp, r)
-		}
-	}
-	return resp
-}
-
-func (vos BinanceRateResponseVO) Get(src, dest string) *BinanceRateResponseUnitVO {
-	s := fmt.Sprintf("%s%s", src, dest)
-	for _, v := range vos {
-		if v.Symbol == s {
-			r := v
-			return &r
-		}
-	}
-	return nil
 }
