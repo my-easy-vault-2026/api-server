@@ -16,15 +16,12 @@ import (
 )
 
 type Token struct {
-	UserID     uint64            `json:"userId"`
-	GroupIDs   []uint64          `json:"groupIds,omitempty"`
-	MerchantID uint64            `json:"merchantId,omitempty"`
-	HasPinCode bool              `json:"hasPinCode,omitempty"`
-	Role       common.Role       `json:"role,omitempty"`
-	Level      common.AdminLevel `json:"level,omitempty"`
-	WsToken    string            `json:"wsToken,omitempty"`
-	IssuedAt   time.Time         `json:"issuedAt"`
-	ExpiredAt  time.Time         `json:"expiredAt"`
+	UserID    uint64      `json:"userId"`
+	GroupIDs  []uint64    `json:"groupIds,omitempty"`
+	Role      common.Role `json:"role,omitempty"`
+	WsToken   string      `json:"wsToken,omitempty"`
+	IssuedAt  time.Time   `json:"issuedAt"`
+	ExpiredAt time.Time   `json:"expiredAt"`
 }
 
 type TokenDao struct {

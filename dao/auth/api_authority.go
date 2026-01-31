@@ -21,19 +21,17 @@ import (
 )
 
 type APIAuthority struct {
-	ID              uint64
-	Endpoint        string
-	Method          common.HTTPMethod
-	Role            common.Role
-	PinCodeRequired common.PincodeRequired
-	GroupID         uint64
-	Count           int
-	Window          time.Duration
-	Burst           int
-	AdminLevel      common.AdminLevel `gorm:"default:null"`
-	Status          common.APIAuthorityStatus
-	CreatedAt       time.Time `gorm:"default:null"`
-	UpdatedAt       time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID        uint64
+	Endpoint  string
+	Method    common.HTTPMethod
+	Role      common.Role
+	GroupID   uint64
+	Count     int
+	Window    time.Duration
+	Burst     int
+	Status    common.APIAuthorityStatus
+	CreatedAt time.Time `gorm:"default:null"`
+	UpdatedAt time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type APIAuthorityQuery struct {

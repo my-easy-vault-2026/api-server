@@ -22,33 +22,13 @@ import (
 )
 
 type User struct {
-	ID                uint64
-	Email             string `gorm:"column:email;uniqueIndex"`
-	SystemEmail       string `gorm:"column:system_email;uniqueIndex"`
-	PinCode           string `gorm:"default:null"`
-	Salt              string `gorm:"default:null"`
-	CountryCode       int    `gorm:"default:null"`
-	PhoneNumber       string `gorm:"default:null"`
-	MerchantID        uint64
-	FirstName         string              `gorm:"default:null"`
-	LastName          string              `gorm:"default:null"`
-	NationCode        common.NationCode   `gorm:"default:null"`
-	Channel           string              `gorm:"default:null"`
-	KycLevel          common.KYCLevel     `gorm:"default:null"`
-	CoinfaceMain      common.CoinfaceMain `gorm:"default:null"`
-	Gender            common.Gender       `gorm:"default:null"`
-	Role              common.Role
-	BlockStatus       common.UserBlockStatus  `gorm:"default:null;column:block_status"`
-	BlockReason       *common.UserBlockReason `gorm:"default:null;column:block_reason"`
-	CulmulativeEPoint decimal.Decimal         `gorm:"default:null;column:cumulative_epoint"`
-	EPointLevel       common.EPointLevel      `gorm:"default:null;column:epoint_level"`
-	AutoTopUp         common.AutoTopUpStatus  `gorm:"default:null"`
-	Auto3DS           common.Auto3DSStatus    `gorm:"default:null;column:auto_3ds"`
-	ATMToggle         common.ATMToggle        `gorm:"default:null;column:atm_toggle"`
-	Language          common.Language         `gorm:"default:null"`
-	PromotionCode     string
-	CreatedAt         time.Time `gorm:"default:null"`
-	UpdatedAt         time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID        uint64
+	Email     string `gorm:"column:email;uniqueIndex"`
+	PinCode   string `gorm:"default:null"`
+	Salt      string `gorm:"default:null"`
+	Role      common.Role
+	CreatedAt time.Time `gorm:"default:null"`
+	UpdatedAt time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type UserQuery struct {

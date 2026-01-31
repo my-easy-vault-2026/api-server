@@ -31,7 +31,6 @@ func NewAuthHandler(authServ *services.AuthService, logger lib.Logger) *AuthHand
 // @Param			X-Token		header		string						false	"回傳User token"
 // @Param			X-ExpiredTs	header		string						false	"回傳失效時間"
 // @Router			/web/user/loginOrRegister [post]
-// @Description	Login or register a user. 如果有pin code，hasPinCode會是true
 // @Tags			web/user
 func (ah *AuthHandler) LoginOrRegister(c *gin.Context) {
 
@@ -51,28 +50,14 @@ func (ah *AuthHandler) LoginOrRegister(c *gin.Context) {
 		return
 	}
 
-	form.Platform = c.Request.Header.Get(common.HEADER_X_PLATFORM)
-	form.DeviceID = c.Request.Header.Get(common.HEADER_X_DEVICE_ID)
-	form.Ip = c.Request.Header.Get(common.HEADER_X_REAL_IP)
-	form.AppVersion = c.Request.Header.Get(common.HEADER_X_APP_VERSION)
-
-	user, userToken, expiredAt, _, err := ah.authService.LoginOrCreate(c, form)
+	user, userToken, expiredAt, err := ah.authService.LoginOrCreate(c, form.Email, form.PINCode)
 
 	if err != nil {
 		utils.ReError(c, err)
 		return
 	}
 
-	hasPinCode := false
-	if user.PinCode != "" {
-		hasPinCode = true
-	}
-
-	res := &entities.LoginOrCreateVO{
-		Token:      userToken,
-		ExpiredAt:  expiredAt.UnixMilli(),
-		HasPinCode: hasPinCode,
-	}
+	res := &entities.LoginOrCreateVO{}
 
 	if err := copier.Copy(res, user); err != nil {
 		utils.ReError(c, err)

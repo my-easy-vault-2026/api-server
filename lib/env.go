@@ -52,6 +52,10 @@ type Env struct {
 	WriteBufferSize int           `mapstructure:"WRITE_BUFFER_SIZE"`
 	BroadcastSize   int64         `mapstructure:"BROADCAST_SIZE"`
 
+	SaltLength          int           `mapstructure:"SALT_LENGTH"`
+	TokenExpireTime     time.Duration `mapstructure:"TOKEN_EXPIRE_TIME"`
+	LoginDataExpireTime time.Duration `mapstructure:"LOGIN_DATA_EXPIRE_TIME"`
+
 	MailClientID     string `mapstructure:"MAIL_CLIENT_ID"`
 	MailClientSecret string `mapstructure:"MAIL_CLIENT_SECRET"`
 	MailTokenType    string `mapstructure:"MAIL_TOKEN_TYPE"`
