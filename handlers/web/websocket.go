@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/infra"
 	"api-server/lib"
 	"api-server/services"
 	"context"
@@ -20,12 +21,15 @@ import (
 type WebsocketHandler struct {
 	websocketService *services.WebsocketService
 	logger           lib.Logger
+	redis            infra.Redis
+	wsServer         infra.WsServer
 }
 
-func NewWebsocketHandler(websockerService *services.WebsocketService, logger lib.Logger) *WebsocketHandler {
+func NewWebsocketHandler(websockerService *services.WebsocketService, logger lib.Logger, redis infra.Redis) *WebsocketHandler {
 	return &WebsocketHandler{
 		websocketService: websockerService,
 		logger:           logger,
+		redis:            redis,
 	}
 }
 
@@ -41,7 +45,7 @@ func (wh *WebsocketHandler) Connect(c *gin.Context) {
 	token = strings.ReplaceAll(token, "/", "")
 	wsKey := utils.GetWsTokenRedisKey(common.ROLE_USER, token)
 
-	ret := utils.RDB.Get(c, wsKey)
+	ret := wh.redis.Get(c, wsKey)
 	if errors.Is(redis.Nil, ret.Err()) {
 		utils.ReError(c, utils.NewBusinessError(c, common.CODE_NOT_LOGIN))
 		return
@@ -67,8 +71,8 @@ func (wh *WebsocketHandler) Connect(c *gin.Context) {
 	}
 
 	var upGrader = websocket.Upgrader{
-		ReadBufferSize:  int(utils.Ws.ReadBufferSize),
-		WriteBufferSize: int(utils.Ws.WriteBufferSize),
+		ReadBufferSize:  int(wh.wsServer.ReadBufferSize),
+		WriteBufferSize: int(wh.wsServer.WriteBufferSize),
 	}
 	//cross origin domain support
 	upGrader.CheckOrigin = func(r *http.Request) bool { return true }

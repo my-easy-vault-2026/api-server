@@ -17,8 +17,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var Ws *WsServer
-
 type WsServer struct {
 	ServerID        string
 	Buckets         []*Bucket
@@ -151,7 +149,7 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 				s.logger.Warn(" ch.Conn.NextWriter err :%s  ", err.Error())
 				return
 			}
-			message.NodeID = Ws.ServerID
+			message.NodeID = s.ServerID
 			message.MsgID = utils.Md5String(time.Now().String())
 			if message.SequenceID == "" {
 				message.SequenceID = message.MsgID

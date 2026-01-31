@@ -231,16 +231,15 @@ func (us *UserService) GetInfo(ctx context.Context, userID uint64, form *entitie
 	return user, groupIDs, nil
 }
 
-func (us *UserService) GetUserRole(ctx context.Context, form *entities.GetUserForm) (*userDao.User, error) {
-	if form.ID == 0 && (form.Email == "" || form.Role == 0) {
+func (us *UserService) GetUserRole(ctx context.Context, userID uint64, role common.Role) (*userDao.User, error) {
+	if userID == 0 || role == 0 {
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	user, err := us.userDao.Get(ctx, &userDao.UserQuery{
 		User: userDao.User{
-			ID:    form.ID,
-			Email: form.Email,
-			Role:  form.Role,
+			ID:   userID,
+			Role: role,
 		},
 	})
 

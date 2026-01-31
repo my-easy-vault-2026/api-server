@@ -8,4 +8,6 @@ var Module = fx.Options(
 	fx.Provide(NewDatabase),
 	fx.Provide(NewRedis),
 	fx.Provide(NewMQ),
+	fx.Provide(NewWs),
+	fx.Provide(NewWorkerPools),
 )

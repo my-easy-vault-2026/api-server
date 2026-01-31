@@ -9,12 +9,9 @@ import (
 
 // Module exported for initializing application
 var Module = fx.Options(
-	fx.Provide(web.NewAccountHandler),
 	fx.Provide(web.NewAuthHandler),
-	fx.Provide(web.NewCardHandler),
 	fx.Provide(web.NewCommonHandler),
 	fx.Provide(web.NewExchangeHandler),
-	fx.Provide(web.NewFinancialHandler),
 	fx.Provide(web.NewOrderHandler),
 	fx.Provide(web.NewQuoteHandler),
 	fx.Provide(web.NewSystemHandler),

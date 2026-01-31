@@ -9,11 +9,8 @@ import (
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/entities"
 	"shared-modules/logger"
 	"shared-modules/utils"
-
-	"golang.org/x/exp/slices"
 )
 
 type OrderService struct {
@@ -44,63 +41,21 @@ func NewOrderService(
 	}
 }
 
-func (os *OrderService) PageTransactionRecords(ctx context.Context, form *entities.PageTransactionRecordsForm, userIDs []uint64) (records []*orderDao.TransactionRecord, pageCurrent int, pageSize int, total int, err error) {
+func (os *OrderService) PageTransactionRecords(ctx context.Context, walletID uint64, userID uint64, current int, size int) (records []*orderDao.TransactionRecord, pageCurrent int, pageSize int, total int, err error) {
 
-	var typeIn []common.TransactionRecordType
-	for _, t := range form.Types {
-		typeArray := common.TransactionRecordType(0).FromString(t)
-		typeIn = append(typeIn, typeArray...)
+	card, err := os.cardDao.GetByIDUserID(ctx, walletID, userID)
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return nil, 0, 0, 0, err
 	}
-
-	if form.CardID != 0 {
-		card, err := os.cardDao.GetByIDUserIDIn(ctx, form.CardID, userIDs)
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, 0, 0, 0, err
-		}
-		if card == nil {
-			return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_ORDER_USER_HAS_NO_SUCH_CARD)
-		}
-		records, pageCurrent, pageSize, total, err = os.transactionRecordDao.PageByUserIDInCardIDType(ctx, userIDs, form.CardID, typeIn, form.Current, form.PageSize)
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, 0, 0, 0, err
-		}
-
-		return records, pageCurrent, pageSize, total, nil
-
-	} else if form.Category != "" {
-		currency := common.Currency(0).FromString(form.Category)
-		if currency == 0 {
-			return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_ORDER_NO_SUCH_CATEGORY)
-		}
-		form.CategoryID = uint64(currency)
-	} else if form.CategoryID != 0 {
-		// no-op
-	} else {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_MISSING_PARAMETER)
+	if card == nil {
+		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_ORDER_USER_HAS_NO_SUCH_CARD)
 	}
-
-	records, pageCurrent, pageSize, total, err = os.transactionRecordDao.PageByUserIDInCategoryIDType(ctx, userIDs, form.CategoryID, typeIn, form.Current, form.PageSize)
+	records, pageCurrent, pageSize, total, err = os.transactionRecordDao.PageByUserIDCardID(ctx, userID, walletID, current, size)
 	if err != nil {
 		logger.Warn("get failed,", err)
 		return nil, 0, 0, 0, err
 	}
 
 	return records, pageCurrent, pageSize, total, nil
-}
-
-func (os *OrderService) GetTransactionRecord(ctx context.Context, form *entities.GetTransactionRecordForm, userIDs []uint64) (record *orderDao.TransactionRecord, err error) {
-
-	side := common.TransactionSide(0).FromString(form.Side)
-
-	record, err = os.transactionRecordDao.GetByTransactionNOSideCardID(ctx, form.OrderNO, side, form.CardID, userIDs)
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, err
-	}
-	if !slices.Contains(userIDs, record.UserID) {
-		return nil, nil
-	}
-	return record, nil
 }

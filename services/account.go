@@ -74,6 +74,22 @@ func (as *AccountService) GetAsset(ctx context.Context, id uint64) (*accountDao.
 	return asset, nil
 }
 
+func (as *AccountService) ListAssetsByIDInUserID(ctx context.Context, ids []uint64, userID uint64) ([]*accountDao.Asset, error) {
+
+	assets, err := as.assetDao.Gets(ctx, &accountDao.AssetQuery{
+		Asset: accountDao.Asset{
+			UserID: userID,
+		},
+		IDIn: ids,
+	})
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return []*accountDao.Asset{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	}
+
+	return assets, nil
+}
+
 func (as *AccountService) GetAssetByCategoryID(ctx context.Context, categoryID uint64, userID uint64) (*accountDao.Asset, error) {
 
 	asset, err := as.assetDao.GetByUserIDCategoryID(ctx, userID, categoryID)

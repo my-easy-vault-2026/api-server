@@ -1,6 +1,7 @@
 package web
 
 import (
+	"api-server/lib"
 	"api-server/services"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -16,11 +17,13 @@ import (
 
 type ExchangeHandler struct {
 	exchangeService *services.ExchangeService
+	logger          lib.Logger
 }
 
-func NewExchangeHandler() *ExchangeHandler {
+func NewExchangeHandler(exchangeService *services.ExchangeService, logger lib.Logger) *ExchangeHandler {
 	return &ExchangeHandler{
-		exchangeService: services.NewExchangeService(),
+		exchangeService: exchangeService,
+		logger:          logger,
 	}
 }
 

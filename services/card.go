@@ -35,6 +35,20 @@ func NewCardService(
 		logger:      logger,
 	}
 }
+func (cs *CardService) ListWalletsByUserID(ctx context.Context, userID uint64) ([]*cardDao.Card, error) {
+
+	cards, err := cs.cardDao.Gets(ctx, &cardDao.CardQuery{
+		Card: cardDao.Card{
+			UserID: userID,
+		},
+	})
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return []*cardDao.Card{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	}
+
+	return cards, nil
+}
 func (cs *CardService) ListCard(ctx context.Context, form *entities.ListCardForm, currency common.Currency, userID uint64) ([]*cardDao.Card, error) {
 
 	cards, err := cs.cardDao.Gets(ctx, &cardDao.CardQuery{

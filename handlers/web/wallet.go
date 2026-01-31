@@ -11,18 +11,34 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/jinzhu/copier"
+	"github.com/shopspring/decimal"
 )
 
 type WalletHandler struct {
-	walletService *services.WalletService
-	logger        lib.Logger
+	cardService    *services.CardService
+	accountService *services.AccountService
+	coinsdoService *services.CoinsdoService
+	userService    *services.UserService
+	systemService  *services.SystemService
+	walletService  *services.WalletService
+	logger         lib.Logger
 }
 
-func NewWalletHandler(walletService *services.WalletService, logger lib.Logger) *WalletHandler {
+func NewWalletHandler(cardService *services.CardService,
+	accountService *services.AccountService,
+	coinsdoService *services.CoinsdoService,
+	userService *services.UserService,
+	systemService *services.SystemService,
+	walletService *services.WalletService,
+	logger lib.Logger) *WalletHandler {
 	return &WalletHandler{
-		walletService: walletService,
-		logger:        logger,
+		cardService:    cardService,
+		accountService: accountService,
+		coinsdoService: coinsdoService,
+		userService:    userService,
+		systemService:  systemService,
+		walletService:  walletService,
+		logger:         logger,
 	}
 }
 
@@ -32,12 +48,10 @@ func NewWalletHandler(walletService *services.WalletService, logger lib.Logger) 
 // @Param			request			body	entities.ListWalletsForm	true	"body"
 // @Param			X-Token			header	string						true	"User token"
 // @Param			Accept-Language	header	string						false	"accept language"
-// @Param			X-Extend		header	string						false	"Extend"
-// @Param			X-Convert		header	string						false	"Convert"
 // @Router			/web/wallet/list [post]
 func (wh *WalletHandler) ListWallets(c *gin.Context) {
 
-	form := &entities.ListWalletsForm{}
+	form := &entities.ListCardForm{}
 
 	err := c.ShouldBindJSON(form)
 
@@ -57,37 +71,94 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 	if userIDString == "" {
 		logger.Error("no X-Uid")
 		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		return
 	}
 
 	userID, err := strconv.ParseUint(userIDString, 10, 64)
 	if err != nil {
 		logger.Error("X-Uid parse failed,", err)
 		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		return
 	}
 
-	wallets, err := wh.walletService.ListWallets(c, form, userID)
+	user, err := wh.userService.GetUserRole(c, userID, common.ROLE_USER)
+	if err != nil {
+		utils.ReError(c, err)
+		return
+	}
+	if user == nil {
+		utils.ReError(c, utils.NewBusinessError(c, common.CODE_USER_NO_SUCH_USER))
+		return
+	}
+
+	cards, err := wh.cardService.ListWalletsByUserID(c, userID)
 	if err != nil {
 		utils.ReError(c, err)
 		return
 	}
 
-	res := &entities.ListWalletsVO{
-		Records: make([]*entities.WalletVO, len(wallets)),
+	if len(cards) == 0 {
+		utils.ReData(
+			c,
+			&entities.ListCardVO{
+				Records: make([]*entities.CardVO, 0),
+			},
+		)
+		return
 	}
 
-	for i, w := range wallets {
-		res.Records[i] = &entities.WalletVO{}
-		err := copier.Copy(res.Records[i], w)
-		if err != nil {
-			logger.Errorf("copy [%v] error, %v", w, err)
-			utils.ReError(c, err)
+	cardIDs := make([]uint64, 0, len(cards))
+	categoryIDs := make([]uint64, 0, len(cards))
+	for _, card := range cards {
+		cardIDs = append(cardIDs, card.ID)
+		categoryIDs = append(categoryIDs, card.CategoryID)
+
+	}
+
+	assets, err := wh.accountService.ListAssetsByIDInUserID(c, cardIDs, userID)
+	if err != nil {
+		utils.ReError(c, err)
+		return
+	}
+
+	if len(assets) != len(cardIDs) {
+		logger.Error("asset wallet mismatch")
+		utils.ReError(c, utils.NewBusinessError(c, common.CODE_CARD_WALLET_ASSET_MISMATCH))
+		return
+	}
+
+	assetMap := map[uint64]decimal.Decimal{}
+	for _, asset := range assets {
+		assetMap[asset.ID] = asset.Amount.Copy()
+	}
+
+	result := &entities.ListCardVO{
+		Records: make([]*entities.CardVO, len(cards)),
+	}
+
+	for i, card := range cards {
+
+		result.Records[i] = &entities.CardVO{
+			ID:            card.ID,
+			UserID:        card.UserID,
+			MerchantID:    card.MerchantID,
+			CategoryID:    card.CategoryID,
+			PreferredName: card.PreferredName,
+			Type:          common.ASSET_TYPE_CARD_PRODUCT.String(),
+			Amount:        assetMap[card.ID].Copy(),
+			Issuer:        card.Issuer,
+			Currency:      card.Currency.String(),
+			Status:        card.Status.String(),
+			CreatedAt:     card.CreatedAt.UnixMilli(),
+			UpdatedAt:     card.UpdatedAt.UnixMilli(),
 		}
-		res.Records[i].Currency = w.Currency.String()
-		res.Records[i].CreatedAt = w.CreatedAt.UnixMilli()
-		res.Records[i].UpdatedAt = w.UpdatedAt.UnixMilli()
+
 	}
 
-	utils.ReData(c, res)
+	utils.ReData(
+		c,
+		result,
+	)
 }
 
 // @Summary     Create a new wallet

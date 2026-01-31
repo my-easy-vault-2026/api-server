@@ -1,13 +1,8 @@
 package web
 
 import (
-	accountDao "api-server/dao/account"
 	"api-server/lib"
 	"api-server/services"
-	"bytes"
-	"context"
-	"encoding/json"
-	"io/ioutil"
 	"shared-modules/common"
 	"shared-modules/entities"
 	"shared-modules/logger"
@@ -136,30 +131,17 @@ func (th *TransferHandler) TransferPreview(c *gin.Context) {
 // @Param			request			body		entities.TransferConfirmForm	true	"body"
 // @Param			X-Token			header		string							true	"User token"
 // @Param			Accept-Language	header		string							false	"accept language"
-// @Param			X-Extend		header		string							false	"Extend"
-// @Param			X-Convert		header		string							false	"Convert"
 // @Success		0				{object}	entities.TransferConfirmVO		"data"
 // @Router			/web/transfer/confirm [post]
 // @Description	Apply for a new transfer confirmation.
 // @Tags			web/transfer
 func (th *TransferHandler) TransferConfirm(c *gin.Context) {
-	// 讀取 request body 的資料並保存到一個變數中
-	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		logger.Error("failed to read request body")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
-		return
-	}
-
-	// 將讀取的資料重新設置回 request body，這樣後續還可以再次使用
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 	form := &entities.TransferConfirmForm{}
 
-	// 將 JSON 資料解析到結構體中
-	err = json.Unmarshal(bodyBytes, &form)
+	err := c.ShouldBindJSON(form)
+
 	if err != nil {
-		logger.Error("failed to unmarshal request body")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		utils.ReError(c, err)
 		return
 	}
 
@@ -183,13 +165,7 @@ func (th *TransferHandler) TransferConfirm(c *gin.Context) {
 		return
 	}
 
-	fromCategory, toCategory, err := th.transferService.GetCategory(c, form)
-	if err != nil {
-		utils.ReError(c, err)
-		return
-	}
-
-	orderNO, err := th.getTransferConfirmService(c, fromCategory, toCategory).TransferConfirm(c, form, userID)
+	orderNO, err := th.transferService.TransferConfirm(c, form, userID)
 	if err != nil {
 		utils.ReError(c, err)
 		return
@@ -199,8 +175,4 @@ func (th *TransferHandler) TransferConfirm(c *gin.Context) {
 		c,
 		&entities.TransferConfirmVO{OrderNO: *orderNO},
 	)
-}
-
-func (th *TransferHandler) getTransferConfirmService(ctx context.Context, fromCategory *accountDao.Category, toCategory *accountDao.Category) services.ITransferConfirm {
-	return th.transferService
 }
