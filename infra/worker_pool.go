@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"shared-modules/common"
-	"shared-modules/logger"
 )
 
 type WorkerPools struct {
@@ -50,7 +49,7 @@ func (wps *WorkerPools) RegisterWorkerPool(pool common.WorkerPool, size int) {
 					for task := range tasks {
 						err := task()
 						if err != nil {
-							logger.Warnf("worker pool task err: [%v]", err)
+							wps.logger.Warnf("worker pool task err: [%v]", err)
 						}
 					}
 				}()

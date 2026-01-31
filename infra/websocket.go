@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"shared-modules/common"
-	"shared-modules/logger"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"
@@ -143,13 +142,13 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 			//write data dead time , like http timeout , default 10s
 			ch.Conn.SetWriteDeadline(time.Now().Add(s.WriteWait))
 			if !ok {
-				logger.Warn("SetWriteDeadline not ok")
+				s.logger.Warn("SetWriteDeadline not ok")
 				ch.Conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 			w, err := ch.Conn.NextWriter(websocket.TextMessage)
 			if err != nil {
-				logger.Warn(" ch.Conn.NextWriter err :%s  ", err.Error())
+				s.logger.Warn(" ch.Conn.NextWriter err :%s  ", err.Error())
 				return
 			}
 			message.NodeID = Ws.ServerID
@@ -157,10 +156,10 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 			if message.SequenceID == "" {
 				message.SequenceID = message.MsgID
 			}
-			logger.Infof("message write body:[%d][%s][%s]", message.OP, message.MsgID, message.Msg)
+			s.logger.Infof("message write body:[%d][%s][%s]", message.OP, message.MsgID, message.Msg)
 			j, err := json.Marshal(message)
 			if err != nil {
-				logger.Error("json marshal failed, ", err)
+				s.logger.Error("json marshal failed, ", err)
 				continue
 			}
 			w.Write(j)
@@ -170,7 +169,7 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 		case <-ticker.C:
 			//heartbeat，if ping error will exit and close current websocket Conn
 			ch.Conn.SetWriteDeadline(time.Now().Add(s.WriteWait))
-			logger.Debugf("websocket.PingMessage :%v", websocket.PingMessage)
+			s.logger.Debugf("websocket.PingMessage :%v", websocket.PingMessage)
 			if err := ch.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
@@ -179,11 +178,11 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 			if errors.Is(err, redis.Nil) {
 				err = s.redis.Set(ctx, utils.GetWebsocketNodeKey(ch.userID), s.env.GoNode, s.PingPeriod*2).Err()
 				if err != nil {
-					logger.Error("set failed: ", err)
+					s.logger.Error("set failed: ", err)
 					return
 				}
 			} else if err != nil {
-				logger.Warn("expire err : %s", err.Error())
+				s.logger.Warn("expire err : %s", err.Error())
 				return
 			}
 		}
@@ -191,32 +190,12 @@ func (s *WsServer) WritePump(ctx context.Context, ch *Channel) {
 }
 
 func (s *WsServer) ReadPump(ctx context.Context, ch *Channel) {
-	// defer func() {
-	// 	logger.Infof("start exec disConnect ...")
-	// 	if ch.userID == 0 {
-	// 		ch.Conn.Close()
-	// 		return
-	// 	}
-	// 	logger.Infof("exec disConnect ...")
-	// 	disConnectRequest := new(proto.DisConnectRequest)
-	// 	disConnectRequest.RoomId = ch.Room.Id
-	// 	disConnectRequest.UserId = ch.userId
-	// 	s.Bucket(ch.userID).DeleteChannel(ch)
-	// 	ch.Conn.Close()
-	// }()
-
-	// ch.Conn.SetReadLimit(s.Options.MaxMessageSize)
-	// ch.Conn.SetReadDeadline(time.Now().Add(s.Options.PongWait))
-	// ch.Conn.SetPongHandler(func(string) error {
-	// 	ch.Conn.SetReadDeadline(time.Now().Add(s.Options.PongWait))
-	// 	return nil
-	// })
 
 	for {
 		_, message, err := ch.Conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				logger.Errorf("readPump ReadMessage err:%s", err.Error())
+				s.logger.Errorf("readPump ReadMessage err:%s", err.Error())
 				return
 			}
 		}
@@ -224,9 +203,9 @@ func (s *WsServer) ReadPump(ctx context.Context, ch *Channel) {
 			return
 		}
 		msg := &common.Msg{}
-		logger.Infof("get a message :%s", message)
+		s.logger.Infof("get a message :%s", message)
 		if err := json.Unmarshal([]byte(message), msg); err != nil {
-			logger.Errorf("unmarshal failed [%s], ", message, err)
+			s.logger.Errorf("unmarshal failed [%s], ", message, err)
 			return
 		}
 		s.handle(ctx, msg)
@@ -242,10 +221,10 @@ func (s *WsServer) handle(ctx context.Context, msg *common.Msg) {
 	if h, ok := s.handlers[msg.OP]; ok {
 		err := h(ctx, msg)
 		if err != nil {
-			logger.Warnf("handler err: %v ", err)
+			s.logger.Warnf("handler err: %v ", err)
 		}
 	} else {
-		logger.Infof("no such OP code[%d][%#v]", msg.OP, msg)
+		s.logger.Infof("no such OP code[%d][%#v]", msg.OP, msg)
 	}
 
 }

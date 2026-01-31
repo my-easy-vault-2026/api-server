@@ -2,8 +2,8 @@ package infra
 
 import (
 	"api-server/utils"
+	"fmt"
 	"shared-modules/common"
-	"shared-modules/logger"
 
 	"context"
 	"encoding/json"
@@ -50,12 +50,12 @@ func L2CQuery[T any](ctx context.Context, db *gorm.DB, rd Redis, qf func(tx *gor
 		if err == nil {
 			return t, nil
 		}
-		logger.Warnf("unmarshal failed [%s][%s], %#v", utils.GetL2CacheKey(table, sql), ret.Val(), err)
+		fmt.Printf("unmarshal failed [%s][%s], %#v", utils.GetL2CacheKey(table, sql), ret.Val(), err)
 	case ret.Err() == nil && ret.Val() == "":
 		return *new(T), nil
 	case errors.Is(ret.Err(), redis.Nil):
 	default:
-		logger.Warnf("redis get failed [%s], %#v", utils.GetL2CacheKey(table, sql), ret.Err())
+		fmt.Printf("redis get failed [%s], %#v", utils.GetL2CacheKey(table, sql), ret.Err())
 	}
 
 	ret := qf(db)
@@ -70,47 +70,47 @@ func L2CQuery[T any](ctx context.Context, db *gorm.DB, rd Redis, qf func(tx *gor
 		if err == nil && !reflect.ValueOf(res).IsZero() {
 			resJSON, err := json.Marshal(res)
 			if err != nil {
-				logger.Warnf("marshal failed: [%s], ", utils.GetL2CacheKey(table, sql), err)
+				fmt.Printf("marshal failed: [%s], ", utils.GetL2CacheKey(table, sql), err)
 				return
 			}
 			value = string(resJSON)
 		}
 
 		if err := rd.SetEx(ctx, utils.GetL2CacheKey(table, sql), value, config.ExpireSeconds*time.Second).Err(); err != nil {
-			logger.Warnf("redis cache failed: [%s], ", utils.GetL2CacheKey(table, sql), err)
+			fmt.Printf("redis cache failed: [%s], ", utils.GetL2CacheKey(table, sql), err)
 			return
 		}
 
 		if err := rd.SAdd(ctx, utils.GetL2CacheKeysKey(table), utils.GetL2CacheKey(table, sql)).Err(); err != nil {
-			logger.Warnf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+			fmt.Printf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 			return
 		}
 
 		switch ret := rd.TTL(ctx, utils.GetL2CacheKeysKey(table)); true {
 		case ret.Err() != nil && !errors.Is(ret.Err(), redis.Nil):
-			logger.Warnf("redis ttl failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+			fmt.Printf("redis ttl failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 			return
 		case errors.Is(ret.Err(), redis.Nil):
-			logger.Warnf("redis expire not found: [%#v]", utils.GetL2CacheKeysKey(table))
+			fmt.Printf("redis expire not found: [%#v]", utils.GetL2CacheKeysKey(table))
 			if err := rd.SAdd(ctx, utils.GetL2CacheKeysKey(table), utils.GetL2CacheKey(table, sql)).Err(); err != nil {
-				logger.Warnf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+				fmt.Printf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}
 			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpireSeconds*time.Second).Err(); err != nil {
-				logger.Warnf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+				fmt.Printf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}
 		case ret.Val() <= config.ExpireSeconds*time.Second:
 			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpireSeconds*time.Second).Err(); err != nil {
-				logger.Warnf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+				fmt.Printf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}
 		default:
-			logger.Errorf("redis expire unknown condition: [%s][%#v]", utils.GetL2CacheKeysKey(table), ret)
+			fmt.Printf("redis expire unknown condition: [%s][%#v]", utils.GetL2CacheKeysKey(table), ret)
 		}
 
 		if err := rd.SAdd(ctx, utils.GetL2CacheTablesKey(), table).Err(); err != nil {
-			logger.Warnf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
+			fmt.Printf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 			return
 		}
 

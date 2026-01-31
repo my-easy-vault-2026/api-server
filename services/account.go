@@ -28,7 +28,6 @@ import (
 type AccountService struct {
 	assetDao              *accountDao.AssetDao
 	assetDailySnapshotDao *accountDao.AssetDailySnapshotDao
-	assetCategoryDao      *accountDao.AssetCategoryDao
 	categoryDao           *accountDao.CategoryDao
 	manualOrderDao        *orderDao.ManualOrderDao
 	transactionRecordDao  *orderDao.TransactionRecordDao
@@ -41,7 +40,6 @@ type AccountService struct {
 
 func NewAccountService(assetDao *accountDao.AssetDao,
 	assetDailySnapshotDao *accountDao.AssetDailySnapshotDao,
-	assetCategoryDao *accountDao.AssetCategoryDao,
 	categoryDao *accountDao.CategoryDao,
 	manualOrderDao *orderDao.ManualOrderDao,
 	transactionRecordDao *orderDao.TransactionRecordDao,
@@ -54,7 +52,6 @@ func NewAccountService(assetDao *accountDao.AssetDao,
 	return &AccountService{
 		assetDao:              assetDao,
 		assetDailySnapshotDao: assetDailySnapshotDao,
-		assetCategoryDao:      assetCategoryDao,
 		categoryDao:           categoryDao,
 		manualOrderDao:        manualOrderDao,
 		transactionRecordDao:  transactionRecordDao,
