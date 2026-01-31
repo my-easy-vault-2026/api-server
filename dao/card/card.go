@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -95,10 +98,21 @@ type CardQuery struct {
 }
 
 type CardDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewCardDao() *CardDao {
-	return &CardDao{}
+func NewCardDao(db infra.Database, env *lib.Env) *CardDao {
+	return &CardDao{
+		db:  db,
+		env: env,
+	}
+}
+
+func (ad *CardDao) WithTx(tx *gorm.DB) *CardDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Card) TableName() string {
@@ -111,7 +125,7 @@ func (ad *CardDao) GetByIssueID(ctx context.Context, issueID string) (*Card, err
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -136,7 +150,7 @@ func (ad *CardDao) GetByIssueIDs(ctx context.Context, issueIDs []string) ([]*Car
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 	err := db.
 		Model(Card{}).
 		Scopes(ad.queryChain(&CardQuery{
@@ -159,7 +173,7 @@ func (ad *CardDao) GetByIDIssueIDMerchantID(ctx context.Context, id uint64, issu
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -187,7 +201,7 @@ func (ad *CardDao) GetByIDIssueID(ctx context.Context, id uint64, issueID string
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -214,7 +228,7 @@ func (ad *CardDao) GetByIssueIDDeleted(ctx context.Context, issueID string) (*Ca
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -242,7 +256,7 @@ func (ad *CardDao) GetByWhaleUserID(ctx context.Context, whaleUserID uint64) (*C
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -268,7 +282,7 @@ func (ad *CardDao) GetIncludeDeletedByWhaleUserID(ctx context.Context, whaleUser
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -295,7 +309,7 @@ func (ad *CardDao) GetByWhaleCardID(ctx context.Context, whaleCardID uint64) (*C
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -321,7 +335,7 @@ func (ad *CardDao) GetByPaycryptoCardNO(ctx context.Context, cardNO string) (*Ca
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -348,7 +362,7 @@ func (ad *CardDao) GetByUserIDCategoryIDForUpdate(ctx context.Context, userID ui
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -377,7 +391,7 @@ func (ad *CardDao) GetByUserIDCurrencyType(ctx context.Context, userID uint64, c
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -406,7 +420,7 @@ func (ad *CardDao) GetByUserIDCategoryID(ctx context.Context, userID uint64, cat
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -434,7 +448,7 @@ func (ad *CardDao) GetByUserIDVendor(ctx context.Context, userID uint64, vendor 
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -462,7 +476,7 @@ func (ad *CardDao) GetByUserIDCategoryIDPaycryptoTypeID(ctx context.Context, use
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -491,7 +505,7 @@ func (ad *CardDao) GetByUserIDInCategoryID(ctx context.Context, userIDs []uint64
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -519,7 +533,7 @@ func (ad *CardDao) ListByMerchantID(ctx context.Context, merchantID uint64, asse
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -549,7 +563,7 @@ func (ad *CardDao) ListByTypeUserID(ctx context.Context, t common.AssetType, use
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -583,7 +597,7 @@ func (ad *CardDao) ListByTypeUserIDIn(ctx context.Context, t common.AssetType, u
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -612,7 +626,7 @@ func (ad *CardDao) ListByIDInMerchantID(ctx context.Context, merchantID uint64, 
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -641,7 +655,7 @@ func (ad *CardDao) ListByIDInUserIDInMerchantID(ctx context.Context, merchantID 
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -672,7 +686,7 @@ func (ad *CardDao) ListByUserID(ctx context.Context, userID uint64) ([]*Card, er
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -701,7 +715,7 @@ func (ad *CardDao) ListByUserIDTypeFormat(ctx context.Context, userID uint64, t 
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -732,7 +746,7 @@ func (ad *CardDao) ListByUserIDCurrencyType(ctx context.Context, userID uint64, 
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -763,7 +777,7 @@ func (ad *CardDao) ListByUserIDFromAutoTopUpType(ctx context.Context, userID uin
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -794,7 +808,7 @@ func (ad *CardDao) ListByUserIDCatogoryID(ctx context.Context, userID uint64, ca
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -824,7 +838,7 @@ func (ad *CardDao) GetByIDTypeUserIDCatogoryID(ctx context.Context, id uint64, t
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -854,7 +868,7 @@ func (ad *CardDao) GetByIDTypeUserIDsCatogoryID(ctx context.Context, id uint64, 
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -882,7 +896,7 @@ func (ad *CardDao) GetByIDUserID(ctx context.Context, id uint64, userID uint64) 
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -908,7 +922,7 @@ func (ad *CardDao) GetByIDUserIDIn(ctx context.Context, id uint64, userIDs []uin
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -934,7 +948,7 @@ func (ad *CardDao) GetByID(ctx context.Context, id uint64) (*Card, error) {
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -959,7 +973,7 @@ func (ad *CardDao) GetByIDForUpdate(ctx context.Context, id uint64) (*Card, erro
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -985,7 +999,7 @@ func (ad *CardDao) GetByIDMerchantID(ctx context.Context, id uint64, merchantID 
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1011,7 +1025,7 @@ func (ad *CardDao) GetByIDUserIDMerchantID(ctx context.Context, id uint64, userI
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1038,7 +1052,7 @@ func (ad *CardDao) GetsByFreezeStatusIDForShare(ctx context.Context, freezeStatu
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1067,7 +1081,7 @@ func (ad *CardDao) GetByUserIDCurrencyTypes(ctx context.Context, userID uint64, 
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1095,7 +1109,7 @@ func (ad *CardDao) GetByUserIDCurrencyTypesVendor(ctx context.Context, userID ui
 	}
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1124,7 +1138,7 @@ func (ad *CardDao) ListByStatusBlockReasonBlockedAtBefore(ctx context.Context, s
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1152,7 +1166,7 @@ func (ad *CardDao) PageByUserIDMerchantIDCardIDCategoryID(ctx context.Context, u
 
 	result := make([]*Card, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Card{}).
@@ -1188,7 +1202,7 @@ func (ad *CardDao) PageByUserIDMerchantIDCardIDCurrency(ctx context.Context, use
 
 	result := make([]*Card, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Card{}).
@@ -1224,7 +1238,7 @@ func (ad *CardDao) PageByUserIDInType(ctx context.Context, userIDs []uint64, t c
 
 	result := make([]*Card, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Card{}).
@@ -1254,7 +1268,7 @@ func (ad *CardDao) PageByUserIDInType(ctx context.Context, userIDs []uint64, t c
 func (ad *CardDao) ListReapCard(ctx context.Context) ([]*Card, error) {
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1281,7 +1295,7 @@ func (ad *CardDao) ListReapCard(ctx context.Context) ([]*Card, error) {
 func (ad *CardDao) ListReapPhysicalCards(ctx context.Context) ([]*Card, error) {
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1308,7 +1322,7 @@ func (ad *CardDao) ListReapPhysicalCards(ctx context.Context) ([]*Card, error) {
 
 func (ad *CardDao) Get(ctx context.Context, query *CardQuery) (*Card, error) {
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1326,7 +1340,7 @@ func (ad *CardDao) Get(ctx context.Context, query *CardQuery) (*Card, error) {
 
 func (ad *CardDao) Gets(ctx context.Context, query *CardQuery) ([]*Card, error) {
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1351,7 +1365,7 @@ func (ad *CardDao) ListReapBlockCardByUserID(ctx context.Context, userID uint64)
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	query := db.Model(Card{}).Where("user_id = ? AND status = ? AND vendor = ?", userID, common.CARD_STATUS_BLOCKED, common.CARD_PRODUCT_VENDOR_REAP)
 
@@ -1380,7 +1394,7 @@ func (ad *CardDao) ListWhaleAndPayCryptoBlockCardByUserID(ctx context.Context, u
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	vendors := []common.CardProductVendor{
 		common.CARD_PRODUCT_VENDOR_WHALE,
@@ -1414,7 +1428,7 @@ func (ad *CardDao) ListCryptoBlockCardByUserID(ctx context.Context, userID uint6
 	}
 
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	query := db.Model(Card{}).Where("user_id = ? AND status = ? AND type = ?", userID, common.CARD_STATUS_BLOCKED, common.ASSET_TYPE_CRYPTO)
 
@@ -1438,7 +1452,7 @@ func (ad *CardDao) ListCryptoBlockCardByUserID(ctx context.Context, userID uint6
 
 func (ad *CardDao) ListCards(ctx context.Context, ids []uint64) ([]*Card, error) {
 	result := make([]*Card, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 	err := db.
 		Model(Card{}).
 		Scopes(ad.queryChain(&CardQuery{
@@ -1456,7 +1470,7 @@ func (ad *CardDao) ListCards(ctx context.Context, ids []uint64) ([]*Card, error)
 }
 
 func (ad *CardDao) UpdateStatusByCardID(ctx context.Context, cardID uint64, status common.CardStatus) error {
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1485,7 +1499,7 @@ func (ad *CardDao) UpdateStatusByCardID(ctx context.Context, cardID uint64, stat
 func (ad *CardDao) GetByCardIDDeleted(ctx context.Context, cardID uint64) (*Card, error) {
 
 	result := &Card{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Card{}).
@@ -1508,9 +1522,9 @@ func (ad *CardDao) GetByCardIDDeleted(ctx context.Context, cardID uint64) (*Card
 
 func (ad *CardDao) Save(ctx context.Context, model *Card) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 	if model.ID == 0 {
-		cardID, err := utils.SnowFlakeCardID.GenerateWithPrefix(model.CategoryID)
+		cardID, err := utils.RandomIDWithPrefix(model.CategoryID)
 		if err != nil {
 			return 0, err
 		}
@@ -1527,7 +1541,7 @@ func (ad *CardDao) Save(ctx context.Context, model *Card) (uint64, error) {
 
 func (ad *CardDao) Update(ctx context.Context, query *CardQuery) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -1605,46 +1619,7 @@ func (ad *CardDao) Update(ctx context.Context, query *CardQuery) (int64, error) 
 	return ret.RowsAffected, nil
 }
 
-func (cd *CardDao) SoftDeleteByID(ctx context.Context, id uint64) (int64, error) {
-
-	if id == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	return cd.Update(ctx, &CardQuery{
-		Card: Card{
-			ID: id,
-		},
-		Attrs: Card{
-			DeletedAt: utils.DBQueryTime(time.Now()),
-			Status:    common.CARD_STATUS_DELETED,
-		},
-	})
-}
-
-func (cd *CardDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
-	if id == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	db := utils.GetDB(ctx)
-
-	ret := db.
-		Delete(&Card{
-			ID: id,
-		})
-
-	if errors.Is(ret.Error, gorm.ErrRecordNotFound) {
-		return 0, nil
-	}
-
-	if ret.Error != nil {
-		return 0, ret.Error
-	}
-
-	return ret.RowsAffected, nil
-}
-
-func (cd *CardDao) queryChain(query *CardQuery) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) queryChain(query *CardQuery) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 
 		structType := reflect.TypeOf(query.Card)
@@ -1661,17 +1636,17 @@ func (cd *CardDao) queryChain(query *CardQuery) func(db *gorm.DB) *gorm.DB {
 			}
 			switch structValue.Field(i).Kind() {
 			case reflect.String:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).String()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).String()))
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Int()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Int()))
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Uint()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Uint()))
 			case reflect.Float32, reflect.Float64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Float()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Float()))
 			case reflect.Bool:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Bool()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Bool()))
 			case reflect.Pointer:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Interface()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Interface()))
 			case reflect.Struct:
 				ptr := structPtrValue.Elem().Field(i).Addr().Interface()
 				switch reflect.TypeOf(ptr) {
@@ -1690,7 +1665,7 @@ func (cd *CardDao) queryChain(query *CardQuery) func(db *gorm.DB) *gorm.DB {
 					if value == nil {
 						continue
 					}
-					db.Scopes(cd.equalScope(fieldName, value))
+					db.Scopes(ad.equalScope(fieldName, value))
 				}
 			default:
 				continue
@@ -1708,57 +1683,57 @@ func (cd *CardDao) queryChain(query *CardQuery) func(db *gorm.DB) *gorm.DB {
 			if f, ok := settings["COLUMN"]; ok {
 				fieldName = f
 			}
-			db.Scopes(cd.notEqualScope(fieldName, notEqualValue.Field(i).Interface()))
+			db.Scopes(ad.notEqualScope(fieldName, notEqualValue.Field(i).Interface()))
 		}
 
 		if query.TypeIn != nil {
-			db.Scopes(cd.inScope("type", query.TypeIn))
+			db.Scopes(ad.inScope("type", query.TypeIn))
 		}
 
 		if query.IDIn != nil {
-			db.Scopes(cd.inScope("id", query.IDIn))
+			db.Scopes(ad.inScope("id", query.IDIn))
 		}
 
 		if query.UserIDIn != nil {
-			db.Scopes(cd.inScope("user_id", query.UserIDIn))
+			db.Scopes(ad.inScope("user_id", query.UserIDIn))
 		}
 
 		if query.AssetTypeIn != nil {
-			db.Scopes(cd.inScope("type", query.AssetTypeIn))
+			db.Scopes(ad.inScope("type", query.AssetTypeIn))
 		}
 
 		if query.IssueIdIn != nil {
-			db.Scopes(cd.inScope("issue_id", query.IssueIdIn))
+			db.Scopes(ad.inScope("issue_id", query.IssueIdIn))
 		}
 
 		if query.ForUpdate {
-			db.Scopes(cd.forScope("UPDATE"))
+			db.Scopes(ad.forScope("UPDATE"))
 		}
 
 		if query.ForShare {
-			db.Scopes(cd.forScope("SHARE"))
+			db.Scopes(ad.forScope("SHARE"))
 		}
 
 		if !query.Deleted {
-			db.Scopes(cd.nullScope([]string{"deleted_at"}, true))
+			db.Scopes(ad.nullScope([]string{"deleted_at"}, true))
 		}
 
 		if !query.BlockedAtLessThan.IsZero() && query.BlockedAtLessThan.UnixMilli() != 0 {
-			db.Scopes(cd.compareScope("blocked_at", query.BlockedAtLessThan, false, true))
+			db.Scopes(ad.compareScope("blocked_at", query.BlockedAtLessThan, false, true))
 		}
 
 		return db.
-			Scopes(cd.orderByScope(query.OrderBy, query.OrderDirection)).
-			Scopes(cd.pageScope(query.Current, query.PageSize))
+			Scopes(ad.orderByScope(query.OrderBy, query.OrderDirection)).
+			Scopes(ad.pageScope(query.Current, query.PageSize))
 	}
 }
 
-func (cd *CardDao) GetCountByUserIdAndCurrency(ctx context.Context, userID uint64, currency common.Currency) (int64, error) {
-	db := utils.GetDB(ctx)
+func (ad *CardDao) GetCountByUserIdAndCurrency(ctx context.Context, userID uint64, currency common.Currency) (int64, error) {
+	db := ad.db.WithContext(ctx)
 	var count int64
 	err := db.
 		Model(Card{}).
-		Scopes(cd.queryChain(&CardQuery{
+		Scopes(ad.queryChain(&CardQuery{
 			Card: Card{
 				Currency: currency,
 				UserID:   userID,
@@ -1775,19 +1750,19 @@ func (cd *CardDao) GetCountByUserIdAndCurrency(ctx context.Context, userID uint6
 	return count, nil
 }
 
-func (cd *CardDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (cd *CardDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
 	}
 }
 
-func (cd *CardDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})
@@ -1796,7 +1771,7 @@ func (cd *CardDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (cd *CardDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if greater {
 			if equal {
@@ -1811,7 +1786,7 @@ func (cd *CardDao) compareScope(fieldName string, field interface{}, greater boo
 	}
 }
 
-func (cd *CardDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {
@@ -1829,7 +1804,7 @@ func (cd *CardDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB)
 	}
 }
 
-func (cd *CardDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -1838,7 +1813,7 @@ func (cd *CardDao) orderByScope(fieldName string, direction common.OrderDirectio
 	}
 }
 
-func (cd *CardDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)
@@ -1849,7 +1824,7 @@ func (cd *CardDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (cd *CardDao) notEqualScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *CardDao) notEqualScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` != ?", fieldName), field)
 	}

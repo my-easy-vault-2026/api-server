@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -25,10 +28,12 @@ type Token struct {
 }
 
 type TokenDao struct {
+	redis infra.Redis
+	env   *lib.Env
 }
 
-func NewTokenDao() *TokenDao {
-	return &TokenDao{}
+func NewTokenDao(redis infra.Redis, env *lib.Env) *TokenDao {
+	return &TokenDao{redis: redis, env: env}
 }
 
 // Save stores a Token struct in Redis.
@@ -42,7 +47,7 @@ func (pd *TokenDao) Save(ctx context.Context, key string, token *Token, expirati
 	redisKey := utils.GetTokenRedisKey(key)
 
 	// Store the JSON data in Redis using the provided key
-	err = utils.RDB.Set(ctx, redisKey, token.UserID, expiration).Err()
+	err = pd.redis.Set(ctx, redisKey, token.UserID, expiration).Err()
 	if err != nil {
 		return err
 	}
@@ -50,7 +55,7 @@ func (pd *TokenDao) Save(ctx context.Context, key string, token *Token, expirati
 	redisKey = utils.GetLoginDataRedisKey(token.UserID, key)
 
 	// Store the JSON data in Redis using the provided key
-	err = utils.RDB.Set(ctx, redisKey, tokenJSON, loginDataExpiration).Err()
+	err = pd.redis.Set(ctx, redisKey, tokenJSON, loginDataExpiration).Err()
 	if err != nil {
 		return err
 	}
@@ -63,7 +68,7 @@ func (pd *TokenDao) Get(ctx context.Context, key string) (*Token, error) {
 	// Retrieve the JSON data from Redis
 	redisKey := utils.GetTokenRedisKey(key)
 
-	userIDStr, err := utils.RDB.Get(ctx, redisKey).Result()
+	userIDStr, err := pd.redis.Get(ctx, redisKey).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
@@ -77,7 +82,7 @@ func (pd *TokenDao) Get(ctx context.Context, key string) (*Token, error) {
 	}
 
 	redisKey = utils.GetLoginDataRedisKey(userID, key)
-	previewJSON, err := utils.RDB.Get(ctx, redisKey).Result()
+	previewJSON, err := pd.redis.Get(ctx, redisKey).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
@@ -103,7 +108,7 @@ func (pd *TokenDao) Get(ctx context.Context, key string) (*Token, error) {
 func (pd *TokenDao) Remove(ctx context.Context, key string) error {
 	// Delete the data from Redis using the provided key
 	redisKey := utils.GetTokenRedisKey(key)
-	err := utils.RDB.Del(ctx, redisKey).Err()
+	err := pd.redis.Del(ctx, redisKey).Err()
 	if errors.Is(err, redis.Nil) {
 		return nil
 	}

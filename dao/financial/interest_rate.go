@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -37,10 +40,19 @@ type InterestRateQuery struct {
 }
 
 type InterestRateDao struct {
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
-func NewInterestRateDao() *InterestRateDao {
-	return &InterestRateDao{}
+func NewInterestRateDao(db infra.Database, env *lib.Env, redis infra.Redis) *InterestRateDao {
+	return &InterestRateDao{db: db, env: env, redis: redis}
+}
+
+func (ad *InterestRateDao) WithTx(tx *gorm.DB) *InterestRateDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (InterestRate) TableName() string {
@@ -49,7 +61,7 @@ func (InterestRate) TableName() string {
 
 func (ad *InterestRateDao) GetByCode(ctx context.Context, code common.FinancialCode) (*InterestRate, error) {
 	result := &InterestRate{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(InterestRate{}).
@@ -72,9 +84,9 @@ func (ad *InterestRateDao) GetByCode(ctx context.Context, code common.FinancialC
 func (ad *InterestRateDao) List(ctx context.Context) ([]*InterestRate, error) {
 
 	result := []*InterestRate{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&InterestRate{}).
 			Scopes(ad.queryChain(&InterestRateQuery{})).Scan(&result)
@@ -87,15 +99,15 @@ func (ad *InterestRateDao) List(ctx context.Context) ([]*InterestRate, error) {
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *InterestRateDao) Get(ctx context.Context, query *InterestRateQuery) (*InterestRate, error) {
 	result := &InterestRate{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(InterestRate{}).
@@ -113,7 +125,7 @@ func (ad *InterestRateDao) Get(ctx context.Context, query *InterestRateQuery) (*
 
 func (ad *InterestRateDao) Gets(ctx context.Context, query *InterestRateQuery) ([]*InterestRate, error) {
 	result := make([]*InterestRate, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(InterestRate{}).
@@ -133,7 +145,7 @@ func (ad *InterestRateDao) Gets(ctx context.Context, query *InterestRateQuery) (
 
 func (ad *InterestRateDao) Save(ctx context.Context, model *InterestRate) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -145,7 +157,7 @@ func (ad *InterestRateDao) Save(ctx context.Context, model *InterestRate) (uint6
 
 func (ad *InterestRateDao) Update(ctx context.Context, query *InterestRateQuery) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -223,11 +235,11 @@ func (ad *InterestRateDao) Update(ctx context.Context, query *InterestRateQuery)
 	return ret.RowsAffected, nil
 }
 
-func (cd *InterestRateDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
+func (ad *InterestRateDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
 	if id == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Delete(&InterestRate{
@@ -310,19 +322,19 @@ func (cd *InterestRateDao) queryChain(query *InterestRateQuery) func(db *gorm.DB
 	}
 }
 
-func (cd *InterestRateDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (cd *InterestRateDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
 	}
 }
 
-func (cd *InterestRateDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})
@@ -331,7 +343,7 @@ func (cd *InterestRateDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (cd *InterestRateDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if greater {
 			if equal {
@@ -346,7 +358,7 @@ func (cd *InterestRateDao) compareScope(fieldName string, field interface{}, gre
 	}
 }
 
-func (cd *InterestRateDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {
@@ -364,7 +376,7 @@ func (cd *InterestRateDao) nullScope(fieldNames []string, isNull bool) func(db *
 	}
 }
 
-func (cd *InterestRateDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -373,7 +385,7 @@ func (cd *InterestRateDao) orderByScope(fieldName string, direction common.Order
 	}
 }
 
-func (cd *InterestRateDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestRateDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)

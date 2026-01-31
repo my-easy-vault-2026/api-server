@@ -81,7 +81,7 @@ func (AssetDailySnapshot) TableName() string {
 
 func (ad *AssetDailySnapshotDao) Get(ctx context.Context, query *AssetDailySnapshotQuery) (*AssetDailySnapshot, error) {
 	result := &AssetDailySnapshot{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(AssetDailySnapshot{}).
@@ -99,7 +99,7 @@ func (ad *AssetDailySnapshotDao) Get(ctx context.Context, query *AssetDailySnaps
 
 func (ad *AssetDailySnapshotDao) Gets(ctx context.Context, query *AssetDailySnapshotQuery) ([]*AssetDailySnapshot, error) {
 	result := make([]*AssetDailySnapshot, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(AssetDailySnapshot{}).
@@ -119,7 +119,7 @@ func (ad *AssetDailySnapshotDao) Gets(ctx context.Context, query *AssetDailySnap
 
 func (ad *AssetDailySnapshotDao) Save(ctx context.Context, model *AssetDailySnapshot, clauses ...utils.Clause) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	for _, c := range clauses {
 		db = db.Scopes(c.Scope())
@@ -133,9 +133,9 @@ func (ad *AssetDailySnapshotDao) Save(ctx context.Context, model *AssetDailySnap
 	return model.ID, nil
 }
 
-func (trd *AssetDailySnapshotDao) Saves(ctx context.Context, models []*AssetDailySnapshot) (int64, error) {
+func (ad *AssetDailySnapshotDao) Saves(ctx context.Context, models []*AssetDailySnapshot) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Model(AssetDailySnapshot{}).
@@ -167,7 +167,7 @@ func (ad *AssetDailySnapshotDao) DeleteByID(ctx context.Context, id uint64) (int
 	if id == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Delete(&AssetDailySnapshot{
@@ -191,7 +191,7 @@ func (ad *AssetDailySnapshotDao) Update(ctx context.Context, query *AssetDailySn
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -431,7 +431,7 @@ func (ad *AssetDailySnapshotDao) compareScope(fieldName string, field interface{
 	}
 }
 
-func (cd *AssetDailySnapshotDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetDailySnapshotDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -440,7 +440,7 @@ func (cd *AssetDailySnapshotDao) orderByScope(fieldName string, direction common
 	}
 }
 
-func (cd *AssetDailySnapshotDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetDailySnapshotDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)

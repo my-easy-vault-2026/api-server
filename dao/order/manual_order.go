@@ -10,6 +10,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -47,11 +50,18 @@ type ManualOrderQuery struct {
 	utils.Page
 }
 type ManualOrderDao struct {
-	// Add any necessary fields or methods here
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewManualOrderDao() *ManualOrderDao {
-	return &ManualOrderDao{}
+func NewManualOrderDao(db infra.Database, env *lib.Env) *ManualOrderDao {
+	return &ManualOrderDao{db: db, env: env}
+}
+
+func (ed *ManualOrderDao) WithTx(tx *gorm.DB) *ManualOrderDao {
+	newDao := *ed
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (ManualOrder) TableName() string {
@@ -60,7 +70,7 @@ func (ManualOrder) TableName() string {
 
 func (ed *ManualOrderDao) Save(ctx context.Context, model *ManualOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 
 	ret := db.
 		Model(ManualOrder{}).
@@ -73,7 +83,7 @@ func (ed *ManualOrderDao) Save(ctx context.Context, model *ManualOrder) (uint64,
 }
 
 func (ed *ManualOrderDao) Update(ctx context.Context, query *ManualOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)

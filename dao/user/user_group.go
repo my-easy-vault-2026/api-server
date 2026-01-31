@@ -67,7 +67,7 @@ func (gd *UserGroupDao) GetByID(ctx context.Context, id uint64) (*UserGroup, err
 	}
 
 	result := &UserGroup{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -89,7 +89,7 @@ func (gd *UserGroupDao) GetByID(ctx context.Context, id uint64) (*UserGroup, err
 
 func (gd *UserGroupDao) Get(ctx context.Context, query *UserGroupQuery) (*UserGroup, error) {
 	result := &UserGroup{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -110,7 +110,7 @@ func (gd *UserGroupDao) ListByUserID(ctx context.Context, userID uint64) ([]*Use
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*UserGroup, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -134,7 +134,7 @@ func (gd *UserGroupDao) ListByUserID(ctx context.Context, userID uint64) ([]*Use
 
 func (gd *UserGroupDao) Gets(ctx context.Context, query *UserGroupQuery) ([]UserGroup, error) {
 	result := make([]UserGroup, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -154,8 +154,8 @@ func (gd *UserGroupDao) Gets(ctx context.Context, query *UserGroupQuery) ([]User
 
 func (gd *UserGroupDao) Save(ctx context.Context, group *UserGroup) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	groupID := utils.SnowFlakeUserID.Generate()
+	db := gd.db.WithContext(ctx)
+	groupID := utils.RandomID()
 	group.ID = groupID
 	ret := db.Create(group)
 
@@ -172,7 +172,7 @@ func (gd *UserGroupDao) Update(ctx context.Context, query *UserGroupQuery) (int6
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)

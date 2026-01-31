@@ -80,16 +80,17 @@ type CategoryQuery struct {
 }
 
 type CategoryDao struct {
-	db  infra.Database
-	env *lib.Env
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
 func (Category) TableName() string {
 	return "asset_category"
 }
 
-func NewCategoryDao(db infra.Database, env *lib.Env) *CategoryDao {
-	return &CategoryDao{db: db, env: env}
+func NewCategoryDao(db infra.Database, env *lib.Env, redis infra.Redis) *CategoryDao {
+	return &CategoryDao{db: db, env: env, redis: redis}
 }
 
 func (md *CategoryDao) WithTx(tx *gorm.DB) *CategoryDao {
@@ -103,9 +104,9 @@ func (md *CategoryDao) WithTx(tx *gorm.DB) *CategoryDao {
 
 func (md *CategoryDao) ListByIDs(ctx context.Context, ids []uint64) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -123,17 +124,17 @@ func (md *CategoryDao) ListByIDs(ctx context.Context, ids []uint64) ([]*Category
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) GetByID(ctx context.Context, id uint64) (*Category, error) {
 	result := &Category{}
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -153,21 +154,21 @@ func (md *CategoryDao) GetByID(ctx context.Context, id uint64) (*Category, error
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) GetByPaycryptoTypeID(ctx context.Context, typeID string) (*Category, error) {
 	result := &Category{}
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
 	if typeID == "" {
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -187,17 +188,17 @@ func (md *CategoryDao) GetByPaycryptoTypeID(ctx context.Context, typeID string) 
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) GetByProductId(ctx context.Context, productId string) (*Category, error) {
 	result := &Category{}
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -217,9 +218,9 @@ func (md *CategoryDao) GetByProductId(ctx context.Context, productId string) (*C
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
@@ -228,9 +229,9 @@ func (md *CategoryDao) GetByCardType(ctx context.Context, cardType common.CardTy
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Category{}
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -250,15 +251,15 @@ func (md *CategoryDao) GetByCardType(ctx context.Context, cardType common.CardTy
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) List(ctx context.Context) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
 	err := db.
 		Model(Category{}).
@@ -278,9 +279,9 @@ func (md *CategoryDao) List(ctx context.Context) ([]*Category, error) {
 
 func (md *CategoryDao) GetFiatList(ctx context.Context) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -300,17 +301,17 @@ func (md *CategoryDao) GetFiatList(ctx context.Context) ([]*Category, error) {
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) GetReapPhysical(ctx context.Context) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -332,17 +333,17 @@ func (md *CategoryDao) GetReapPhysical(ctx context.Context) ([]*Category, error)
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) Gets(ctx context.Context, query *CategoryQuery) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(query)).
@@ -358,17 +359,17 @@ func (md *CategoryDao) Gets(ctx context.Context, query *CategoryQuery) ([]*Categ
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) ListByType(ctx context.Context, t common.AssetType) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -386,17 +387,17 @@ func (md *CategoryDao) ListByType(ctx context.Context, t common.AssetType) ([]*C
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
 func (md *CategoryDao) ListByTypeUsage(ctx context.Context, t common.AssetType, usages []common.CategoryUsage) ([]*Category, error) {
 	result := make([]*Category, 0)
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
 			Scopes(md.queryChain(&CategoryQuery{
@@ -415,9 +416,9 @@ func (md *CategoryDao) ListByTypeUsage(ctx context.Context, t common.AssetType, 
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
+		&infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
 
@@ -446,7 +447,7 @@ func (md *CategoryDao) ExtractSupported(ctx context.Context, category *Category)
 
 func (md *CategoryDao) Save(ctx context.Context, model *Category) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -463,7 +464,7 @@ func (md *CategoryDao) Update(ctx context.Context, query *CategoryQuery) (int64,
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := md.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -520,7 +521,7 @@ func (md *CategoryDao) Update(ctx context.Context, query *CategoryQuery) (int64,
 	}
 
 	ret := db.
-		Model(AssetCategory{}).
+		Model(Category{}).
 		Where("id = ?", query.ID).
 		Scopes(md.queryChain(query)).
 		Updates(attrs)
@@ -601,13 +602,13 @@ func (ad *CategoryDao) queryChain(query *CategoryQuery) func(db *gorm.DB) *gorm.
 	}
 }
 
-func (ad *CategoryDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (md *CategoryDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (ad *CategoryDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (md *CategoryDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
@@ -616,7 +617,7 @@ func (ad *CategoryDao) inScope(fieldName string, field interface{}) func(db *gor
 	}
 }
 
-func (ad *CategoryDao) hasScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (md *CategoryDao) hasScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if field == nil {
 			return db

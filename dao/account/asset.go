@@ -76,7 +76,7 @@ func (Asset) TableName() string {
 
 func (ad *AssetDao) AddAssets(ctx context.Context, userId uint64, cardID uint64, categoryID uint64, currency common.Currency, amount decimal.Decimal) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 	var ret *gorm.DB
 
 	if common.IsSystemAccount(userId) {
@@ -124,7 +124,7 @@ func (ad *AssetDao) DeductAssets(
 	amount decimal.Decimal,
 	allowNeg bool) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	var ret *gorm.DB
 
@@ -167,7 +167,7 @@ func (ad *AssetDao) DeductAssets(
 }
 func (ad *AssetDao) AddFreezedAssets(ctx context.Context, userId uint64, cardID uint64, categoryID uint64, currency common.Currency, amount decimal.Decimal) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	if common.IsSystemAccount(userId) {
 		db = db.
@@ -201,7 +201,7 @@ func (ad *AssetDao) DeductFreezeAssets(
 	amount decimal.Decimal,
 	allowNeg bool) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	if common.IsSystemAccount(userId) {
 		db = db.
@@ -237,7 +237,7 @@ func (ad *AssetDao) FreezeAssets(
 	amount decimal.Decimal,
 	allowNeg bool) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	updates := map[string]interface{}{
 		"amount":         gorm.Expr("amount - ?", amount),
@@ -285,7 +285,7 @@ func (ad *AssetDao) UnfreezeAssets(
 	amount decimal.Decimal,
 	allowNeg bool) error {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	updates := map[string]interface{}{
 		"amount":         gorm.Expr("amount + ?", amount),
@@ -330,7 +330,7 @@ func (ad *AssetDao) GetByUserIDCardID(ctx context.Context, userID uint64, cardID
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -352,7 +352,7 @@ func (ad *AssetDao) GetByUserIDCategoryID(ctx context.Context, userID uint64, ca
 	}
 
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -379,7 +379,7 @@ func (ad *AssetDao) GetByUserIDTypeCurrency(ctx context.Context, userID uint64, 
 	}
 
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -407,7 +407,7 @@ func (ad *AssetDao) GetByUserIDCategoryIDCardID(ctx context.Context, userID uint
 	}
 
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -434,7 +434,7 @@ func (ad *AssetDao) GetByIDForUpdate(ctx context.Context, id uint64) (*Asset, er
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -460,7 +460,7 @@ func (ad *AssetDao) GetByIDUserID(ctx context.Context, id uint64, userID uint64)
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -486,7 +486,7 @@ func (ad *AssetDao) GetByID(ctx context.Context, id uint64) (*Asset, error) {
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -508,7 +508,7 @@ func (ad *AssetDao) GetByID(ctx context.Context, id uint64) (*Asset, error) {
 
 func (ad *AssetDao) GetByUserIDTypeInCurrencyOrderByAmount(ctx context.Context, userID uint64, typeIn []common.AssetType, currency common.Currency) (*Asset, error) {
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -542,7 +542,7 @@ func (ad *AssetDao) GetByUserIDTypeInCurrencyCategoryIDInOrderByAmount(ctx conte
 	}
 
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -572,7 +572,7 @@ func (ad *AssetDao) GetByUserIDCurrency(ctx context.Context, userID uint64, curr
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -598,7 +598,7 @@ func (ad *AssetDao) GetByUserID(ctx context.Context, userID uint64) ([]*Asset, e
 		return make([]*Asset, 0), nil
 	}
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -626,7 +626,7 @@ func (ad *AssetDao) GetByUserIDTypesIn(ctx context.Context, userID uint64, types
 		return make([]*Asset, 0), nil
 	}
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -649,7 +649,7 @@ func (ad *AssetDao) GetByUserIDTypesIn(ctx context.Context, userID uint64, types
 func (ad *AssetDao) GetByCurrency(ctx context.Context, currency common.Currency) ([]*Asset, error) {
 
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -672,7 +672,7 @@ func (ad *AssetDao) GetByCurrency(ctx context.Context, currency common.Currency)
 func (ad *AssetDao) GetTotalAmountByCurrency(ctx context.Context, currency common.Currency) (decimal.Decimal, error) {
 
 	var totalAmount decimal.Decimal
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(&Asset{}).
@@ -691,7 +691,7 @@ func (ad *AssetDao) GetTotalAmountByCurrency(ctx context.Context, currency commo
 
 func (ad *AssetDao) ListByUserID(ctx context.Context, userID uint64) ([]*Asset, error) {
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -720,7 +720,7 @@ func (ad *AssetDao) ListByTypeCurrencyInUserIDIn(ctx context.Context, t common.A
 	}
 
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -749,7 +749,7 @@ func (ad *AssetDao) ListByIDIn(ctx context.Context, ids []uint64) ([]*Asset, err
 		return []*Asset{}, nil
 	}
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -772,7 +772,7 @@ func (ad *AssetDao) ListByIDIn(ctx context.Context, ids []uint64) ([]*Asset, err
 func (ad *AssetDao) Page(ctx context.Context, pageCurrent int, pageSize int) (records []*Asset, current int, size int, total int, err error) {
 	result := make([]*Asset, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Asset{}).
@@ -798,7 +798,7 @@ func (ad *AssetDao) Page(ctx context.Context, pageCurrent int, pageSize int) (re
 func (ad *AssetDao) PageOrderByID(ctx context.Context, pageCurrent int, pageSize int) (records []*Asset, current int, size int, total int, err error) {
 	result := make([]*Asset, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Asset{}).
@@ -828,7 +828,7 @@ func (ad *AssetDao) PageByTypeCurrencyInOrderByID(ctx context.Context, t common.
 
 	result := make([]*Asset, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err = db.
 		Model(Asset{}).
@@ -861,7 +861,7 @@ func (ad *AssetDao) ListByUserIDType(ctx context.Context, userID uint64, t commo
 	}
 
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -895,7 +895,7 @@ func (ad *AssetDao) ListByUserIDTypeCurrencyIn(ctx context.Context, userID uint6
 	}
 
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -921,7 +921,7 @@ func (ad *AssetDao) ListByUserIDTypeCurrencyIn(ctx context.Context, userID uint6
 
 func (ad *AssetDao) Get(ctx context.Context, query *AssetQuery) (*Asset, error) {
 	result := &Asset{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -939,7 +939,7 @@ func (ad *AssetDao) Get(ctx context.Context, query *AssetQuery) (*Asset, error) 
 
 func (ad *AssetDao) Gets(ctx context.Context, query *AssetQuery) ([]*Asset, error) {
 	result := make([]*Asset, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Asset{}).
@@ -959,7 +959,7 @@ func (ad *AssetDao) Gets(ctx context.Context, query *AssetQuery) ([]*Asset, erro
 
 func (ad *AssetDao) Save(ctx context.Context, model *Asset, clauses ...utils.Clause) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	for _, c := range clauses {
 		db = db.Scopes(c.Scope())
@@ -993,7 +993,7 @@ func (ad *AssetDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
 	if id == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Delete(&Asset{
@@ -1018,7 +1018,7 @@ func (ad *AssetDao) Update(ctx context.Context, query *AssetQuery) (int64, error
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -1258,7 +1258,7 @@ func (ad *AssetDao) compareScope(fieldName string, field interface{}, greater bo
 	}
 }
 
-func (cd *AssetDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -1267,7 +1267,7 @@ func (cd *AssetDao) orderByScope(fieldName string, direction common.OrderDirecti
 	}
 }
 
-func (cd *AssetDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)

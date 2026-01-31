@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -18,13 +21,18 @@ import (
 )
 
 type TransactionRecordDao struct {
-	db *gorm.DB
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewTransactionRecordDao() *TransactionRecordDao {
-	return &TransactionRecordDao{
-		db: utils.DB,
-	}
+func NewTransactionRecordDao(db infra.Database, env *lib.Env) *TransactionRecordDao {
+	return &TransactionRecordDao{db: db, env: env}
+}
+
+func (trd *TransactionRecordDao) WithTx(tx *gorm.DB) *TransactionRecordDao {
+	newDao := *trd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 type TransactionRecord struct {
@@ -192,7 +200,7 @@ func (TransactionRecord) TableName() string {
 func (trd *TransactionRecordDao) PageByUserIDInCardIDType(ctx context.Context, userIDs []uint64, cardID uint64, typeIn []common.TransactionRecordType, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -224,7 +232,7 @@ func (trd *TransactionRecordDao) PageByUserIDInCardIDType(ctx context.Context, u
 func (trd *TransactionRecordDao) PageByUserIDInCategoryIDType(ctx context.Context, userIDs []uint64, categoryID uint64, typeIn []common.TransactionRecordType, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -256,7 +264,7 @@ func (trd *TransactionRecordDao) PageByUserIDInCategoryIDType(ctx context.Contex
 func (trd *TransactionRecordDao) PageByUserIDCardIDCategoryID(ctx context.Context, userID uint64, cardID uint64, categoryID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -289,7 +297,7 @@ func (trd *TransactionRecordDao) PageByUserIDCardIDCategoryID(ctx context.Contex
 func (trd *TransactionRecordDao) PageByUserIDCardIDCategoryIDMerchantID(ctx context.Context, userID uint64, cardID uint64, categoryID uint64, merchantID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -323,7 +331,7 @@ func (trd *TransactionRecordDao) PageByUserIDCardIDCategoryIDMerchantID(ctx cont
 func (trd *TransactionRecordDao) PageByUserIDAndPromotionCode(ctx context.Context, userID uint64, promotionCode string, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -356,7 +364,7 @@ func (trd *TransactionRecordDao) PageByUserIDAndPromotionCode(ctx context.Contex
 func (trd *TransactionRecordDao) GetByUserIDAndPromotionCode(ctx context.Context, userID uint64, promotionCode string, createdAtFrom time.Time, createdAtTo time.Time) (records []*TransactionRecord, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -383,7 +391,7 @@ func (trd *TransactionRecordDao) GetByUserIDAndPromotionCode(ctx context.Context
 
 func (trd *TransactionRecordDao) GetByPromotionCodeAndDate(ctx context.Context, promotionCode string, createdAtFrom time.Time, createdAtTo time.Time) (records []*TransactionRecord, err error) {
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -406,7 +414,7 @@ func (trd *TransactionRecordDao) GetByPromotionCodeAndDate(ctx context.Context, 
 
 func (trd *TransactionRecordDao) GetByPromotionCode(ctx context.Context, promotionCode string) (records []*TransactionRecord, err error) {
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -425,7 +433,7 @@ func (trd *TransactionRecordDao) GetByPromotionCode(ctx context.Context, promoti
 
 func (trd *TransactionRecordDao) GetByTypeAndPromotionCode(ctx context.Context, userID uint64, txType common.TransactionRecordType, promotionCode string) (records []*TransactionRecord, err error) {
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -447,7 +455,7 @@ func (trd *TransactionRecordDao) GetByTypeAndPromotionCode(ctx context.Context, 
 func (trd *TransactionRecordDao) PageByTypeAndPromotionCode(ctx context.Context, userID uint64, txType common.TransactionRecordType, promotionCode string, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err = db.
 		Model(TransactionRecord{}).
@@ -478,7 +486,7 @@ func (trd *TransactionRecordDao) PageByTypeAndPromotionCode(ctx context.Context,
 
 func (trd *TransactionRecordDao) Get(ctx context.Context, query *TransactionRecordQuery) (*TransactionRecord, error) {
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -496,7 +504,7 @@ func (trd *TransactionRecordDao) Get(ctx context.Context, query *TransactionReco
 
 func (trd *TransactionRecordDao) Gets(ctx context.Context, query *TransactionRecordQuery) ([]*TransactionRecord, error) {
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -520,7 +528,7 @@ func (trd *TransactionRecordDao) GetByReapTransactionID(ctx context.Context, rea
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -548,7 +556,7 @@ func (trd *TransactionRecordDao) GetByTransactionNO(ctx context.Context, transac
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -578,7 +586,7 @@ func (trd *TransactionRecordDao) GetByTransactionNOSideCardID(ctx context.Contex
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -609,7 +617,7 @@ func (trd *TransactionRecordDao) GetByTransactionNOSide(ctx context.Context, tra
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -638,7 +646,7 @@ func (trd *TransactionRecordDao) GetByTransactionNOUserID(ctx context.Context, t
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -667,7 +675,7 @@ func (trd *TransactionRecordDao) GetByTransactionNOMerchantID(ctx context.Contex
 	}
 
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -695,7 +703,7 @@ func (trd *TransactionRecordDao) GetBYEtherfiTransacionId(ctx context.Context, t
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &TransactionRecord{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	err := db.
 		Model(&TransactionRecord{}).
 		Scopes(trd.queryChain(&TransactionRecordQuery{
@@ -719,7 +727,7 @@ func (trd *TransactionRecordDao) ListByReapTransactionID(ctx context.Context, re
 	}
 
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(&TransactionRecord{}).
@@ -746,7 +754,7 @@ func (trd *TransactionRecordDao) ListByTransactionNos(ctx context.Context, trans
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	err := db.
 		Model(&TransactionRecord{}).
 		Scopes(trd.queryChain(&TransactionRecordQuery{
@@ -768,7 +776,7 @@ func (trd *TransactionRecordDao) ListByUserIDCardIdTypeStatus(ctx context.Contex
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*TransactionRecord, 0)
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	err := db.
 		Model(&TransactionRecord{}).
 		Scopes(trd.queryChain(&TransactionRecordQuery{
@@ -793,7 +801,7 @@ func (trd *TransactionRecordDao) ListByUserIDCardIdTypeStatus(ctx context.Contex
 
 func (trd *TransactionRecordDao) Save(ctx context.Context, model *TransactionRecord) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	ret := db.
 		Model(TransactionRecord{}).
@@ -807,7 +815,7 @@ func (trd *TransactionRecordDao) Save(ctx context.Context, model *TransactionRec
 
 func (trd *TransactionRecordDao) Saves(ctx context.Context, models []*TransactionRecord) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	ret := db.
 		Model(TransactionRecord{}).
@@ -821,7 +829,7 @@ func (trd *TransactionRecordDao) Saves(ctx context.Context, models []*Transactio
 
 func (trd *TransactionRecordDao) Update(ctx context.Context, query *TransactionRecordQuery) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)

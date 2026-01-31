@@ -8,6 +8,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 )
@@ -27,10 +30,12 @@ type SnapshotBalance struct {
 }
 
 type SnapshotBalanceDao struct {
+	redis infra.Redis
+	env   *lib.Env
 }
 
-func NewSnapshotBalanceDao() *SnapshotBalanceDao {
-	return &SnapshotBalanceDao{}
+func NewSnapshotBalanceDao(redis infra.Redis, env *lib.Env) *SnapshotBalanceDao {
+	return &SnapshotBalanceDao{redis: redis, env: env}
 }
 
 // Save stores a Preview struct in Redis.
@@ -44,7 +49,7 @@ func (sbd *SnapshotBalanceDao) Save(ctx context.Context, snapshotBalance *Snapsh
 	redisKey := utils.GetSnapshotRedisKey(snapshotBalance.FinancialCode, snapshotBalance.CardID, snapshotBalance.TakenAt)
 
 	// Store the JSON data in Redis using the provided key
-	err = utils.RDB.Set(ctx, redisKey, snapshotBalanceJSON, expiration).Err()
+	err = sbd.redis.Set(ctx, redisKey, snapshotBalanceJSON, expiration).Err()
 	if err != nil {
 		return err
 	}
@@ -57,7 +62,7 @@ func (sbd *SnapshotBalanceDao) Get(ctx context.Context, snapshotBalance *Snapsho
 	// Retrieve the JSON data from Redis
 	redisKey := utils.GetSnapshotRedisKey(snapshotBalance.FinancialCode, snapshotBalance.CardID, snapshotBalance.TakenAt)
 
-	snapshotBalanceJSON, err := utils.RDB.Get(ctx, redisKey).Result()
+	snapshotBalanceJSON, err := sbd.redis.Get(ctx, redisKey).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
@@ -83,7 +88,7 @@ func (sbd *SnapshotBalanceDao) Get(ctx context.Context, snapshotBalance *Snapsho
 func (sbd *SnapshotBalanceDao) Remove(ctx context.Context, snapshotBalance *SnapshotBalance) error {
 	// Delete the data from Redis using the provided key
 	redisKey := utils.GetSnapshotRedisKey(snapshotBalance.FinancialCode, snapshotBalance.CardID, snapshotBalance.TakenAt)
-	err := utils.RDB.Del(ctx, redisKey).Err()
+	err := sbd.redis.Del(ctx, redisKey).Err()
 	if errors.Is(err, redis.Nil) {
 		return nil
 	}

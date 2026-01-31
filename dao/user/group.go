@@ -67,7 +67,7 @@ func (gd *GroupDao) GetByID(ctx context.Context, id uint64) (*Group, error) {
 	}
 
 	result := &Group{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -89,7 +89,7 @@ func (gd *GroupDao) GetByID(ctx context.Context, id uint64) (*Group, error) {
 
 func (gd *GroupDao) Get(ctx context.Context, query *GroupQuery) (*Group, error) {
 	result := &Group{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -107,7 +107,7 @@ func (gd *GroupDao) Get(ctx context.Context, query *GroupQuery) (*Group, error) 
 
 func (gd *GroupDao) Gets(ctx context.Context, query *GroupQuery) ([]Group, error) {
 	result := make([]Group, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -127,8 +127,8 @@ func (gd *GroupDao) Gets(ctx context.Context, query *GroupQuery) ([]Group, error
 
 func (gd *GroupDao) Save(ctx context.Context, group *Group) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	groupID := utils.SnowFlakeUserID.Generate()
+	db := gd.db.WithContext(ctx)
+	groupID := utils.RandomID()
 	group.ID = groupID
 	ret := db.Create(group)
 
@@ -145,7 +145,7 @@ func (gd *GroupDao) Update(ctx context.Context, query *GroupQuery) (int64, error
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)

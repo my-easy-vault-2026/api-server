@@ -76,7 +76,7 @@ func (Bill) TableName() string {
 
 func (bd *BillDao) GetByDateRange(ctx context.Context, currency common.Currency, startDate, endDate time.Time) ([]*Bill, error) {
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -103,7 +103,7 @@ func (bd *BillDao) GetByOrderNOBillType(ctx context.Context, orderNO string, bil
 	}
 
 	result := &Bill{}
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -127,7 +127,7 @@ func (bd *BillDao) GetByOrderNOBillType(ctx context.Context, orderNO string, bil
 func (bd *BillDao) PageByUserIDAssetIDCurrency(ctx context.Context, userID uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -167,7 +167,7 @@ func (bd *BillDao) PageByUserIDAssetIDCurrency(ctx context.Context, userID uint6
 func (bd *BillDao) PageByUserIDAssetIDCurrencyAmountNotZero(ctx context.Context, userID uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -213,7 +213,7 @@ func (bd *BillDao) PageByUserIDAssetIDCurrencyAmountNotZero(ctx context.Context,
 func (bd *BillDao) PageByUserIDInAssetIDCurrency(ctx context.Context, userIDIn []uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -253,7 +253,7 @@ func (bd *BillDao) PageByUserIDInAssetIDCurrency(ctx context.Context, userIDIn [
 func (bd *BillDao) PageByUserIDInAssetIDCurrencyAmountNotZero(ctx context.Context, userIDIn []uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -303,7 +303,7 @@ func (bd *BillDao) ListByUserIDInCardIDIn(ctx context.Context, userIDs []uint64,
 	}
 
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -335,7 +335,7 @@ func (bd *BillDao) ListByUserID(ctx context.Context, userID uint64, createdAtFro
 	}
 
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -365,7 +365,7 @@ func (bd *BillDao) ListByIDIn(ctx context.Context, ids []uint64, createdAtFrom t
 	}
 
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -394,7 +394,7 @@ func (bd *BillDao) ListByAssetIDIn(ctx context.Context, assetIDs []uint64, creat
 	}
 
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -425,7 +425,7 @@ func (bd *BillDao) ListByUserIDIn(ctx context.Context, userIDs []uint64, created
 	}
 
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -452,7 +452,7 @@ func (bd *BillDao) ListByUserIDIn(ctx context.Context, userIDs []uint64, created
 func (bd *BillDao) PageByUserID(ctx context.Context, userID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -488,7 +488,7 @@ func (bd *BillDao) PageByUserID(ctx context.Context, userID uint64, createdAtFro
 func (bd *BillDao) PageByUserIDAmountNotZero(ctx context.Context, userID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -530,7 +530,7 @@ func (bd *BillDao) PageByUserIDAmountNotZero(ctx context.Context, userID uint64,
 func (bd *BillDao) PageByUserIDIn(ctx context.Context, userIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -563,7 +563,7 @@ func (bd *BillDao) PageByUserIDIn(ctx context.Context, userIDs []uint64, created
 func (bd *BillDao) PageByUserIDInAmountNotZero(ctx context.Context, userIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -602,7 +602,7 @@ func (bd *BillDao) PageByUserIDInAmountNotZero(ctx context.Context, userIDs []ui
 func (bd *BillDao) PageByAssetIDIn(ctx context.Context, assetIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -635,7 +635,7 @@ func (bd *BillDao) PageByAssetIDIn(ctx context.Context, assetIDs []uint64, creat
 func (bd *BillDao) PageByAssetIDInAmountNotZero(ctx context.Context, assetIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
 	result := make([]*Bill, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err = db.
 		Model(Bill{}).
@@ -673,7 +673,7 @@ func (bd *BillDao) PageByAssetIDInAmountNotZero(ctx context.Context, assetIDs []
 
 func (bd *BillDao) Get(ctx context.Context, query *BillQuery) (*Bill, error) {
 	result := &Bill{}
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -691,7 +691,7 @@ func (bd *BillDao) Get(ctx context.Context, query *BillQuery) (*Bill, error) {
 
 func (bd *BillDao) Gets(ctx context.Context, query *BillQuery) ([]*Bill, error) {
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -711,7 +711,7 @@ func (bd *BillDao) Gets(ctx context.Context, query *BillQuery) ([]*Bill, error) 
 
 func (bd *BillDao) Save(ctx context.Context, model *Bill, clauses ...utils.Clause) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	for _, c := range clauses {
 		db = db.Scopes(c.Scope())

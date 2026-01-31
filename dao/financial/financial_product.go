@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -41,10 +44,19 @@ type FinancialProductQuery struct {
 }
 
 type FinancialProductDao struct {
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
-func NewFinancialProductDao() *FinancialProductDao {
-	return &FinancialProductDao{}
+func NewFinancialProductDao(db infra.Database, env *lib.Env, redis infra.Redis) *FinancialProductDao {
+	return &FinancialProductDao{db: db, env: env, redis: redis}
+}
+
+func (ad *FinancialProductDao) WithTx(tx *gorm.DB) *FinancialProductDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (FinancialProduct) TableName() string {
@@ -53,9 +65,9 @@ func (FinancialProduct) TableName() string {
 
 func (ad *FinancialProductDao) GetByCode(ctx context.Context, code common.FinancialCode) (*FinancialProduct, error) {
 	result := &FinancialProduct{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&FinancialProduct{}).
 			Scopes(ad.queryChain(&FinancialProductQuery{
@@ -72,16 +84,16 @@ func (ad *FinancialProductDao) GetByCode(ctx context.Context, code common.Financ
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *FinancialProductDao) List(ctx context.Context) ([]*FinancialProduct, error) {
 
 	result := make([]*FinancialProduct, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(FinancialProduct{}).
@@ -101,7 +113,7 @@ func (ad *FinancialProductDao) List(ctx context.Context) ([]*FinancialProduct, e
 
 func (ad *FinancialProductDao) Get(ctx context.Context, query *FinancialProductQuery) (*FinancialProduct, error) {
 	result := &FinancialProduct{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(FinancialProduct{}).
@@ -119,7 +131,7 @@ func (ad *FinancialProductDao) Get(ctx context.Context, query *FinancialProductQ
 
 func (ad *FinancialProductDao) Gets(ctx context.Context, query *FinancialProductQuery) ([]*FinancialProduct, error) {
 	result := make([]*FinancialProduct, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(FinancialProduct{}).
@@ -139,7 +151,7 @@ func (ad *FinancialProductDao) Gets(ctx context.Context, query *FinancialProduct
 
 func (ad *FinancialProductDao) Save(ctx context.Context, model *FinancialProduct) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -151,7 +163,7 @@ func (ad *FinancialProductDao) Save(ctx context.Context, model *FinancialProduct
 
 func (ad *FinancialProductDao) Update(ctx context.Context, query *FinancialProductQuery) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -229,11 +241,11 @@ func (ad *FinancialProductDao) Update(ctx context.Context, query *FinancialProdu
 	return ret.RowsAffected, nil
 }
 
-func (cd *FinancialProductDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
+func (ad *FinancialProductDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
 	if id == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Delete(&FinancialProduct{
@@ -316,19 +328,19 @@ func (cd *FinancialProductDao) queryChain(query *FinancialProductQuery) func(db 
 	}
 }
 
-func (cd *FinancialProductDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (cd *FinancialProductDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
 	}
 }
 
-func (cd *FinancialProductDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})
@@ -337,7 +349,7 @@ func (cd *FinancialProductDao) forScope(lock string) func(db *gorm.DB) *gorm.DB 
 	}
 }
 
-func (cd *FinancialProductDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if greater {
 			if equal {
@@ -352,7 +364,7 @@ func (cd *FinancialProductDao) compareScope(fieldName string, field interface{},
 	}
 }
 
-func (cd *FinancialProductDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {
@@ -370,7 +382,7 @@ func (cd *FinancialProductDao) nullScope(fieldNames []string, isNull bool) func(
 	}
 }
 
-func (cd *FinancialProductDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -379,7 +391,7 @@ func (cd *FinancialProductDao) orderByScope(fieldName string, direction common.O
 	}
 }
 
-func (cd *FinancialProductDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *FinancialProductDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)

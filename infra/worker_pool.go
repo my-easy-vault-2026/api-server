@@ -1,7 +1,9 @@
 package infra
 
 import (
+	"api-server/lib"
 	"context"
+	"errors"
 	"strconv"
 	"sync"
 
@@ -9,34 +11,42 @@ import (
 	"shared-modules/logger"
 )
 
-var (
+type WorkerPools struct {
+	env             *lib.Env
+	logger          lib.Logger
 	workerPoolTasks map[common.WorkerPool]chan func() error
 	workerPoolLock  sync.RWMutex
 	workerPoolOnce  sync.Once
-)
+}
 
-func RegisterWorkerPool(pool common.WorkerPool, size int) {
-	workerPoolOnce.Do(func() {
-		workerPoolTasks = make(map[common.WorkerPool]chan func() error)
-	})
+func NewWorkerPools(env *lib.Env, logger lib.Logger) *WorkerPools {
+	wps := &WorkerPools{
+		env:             env,
+		logger:          logger,
+		workerPoolTasks: make(map[common.WorkerPool]chan func() error),
+		workerPoolLock:  sync.RWMutex{},
+		workerPoolOnce:  sync.Once{},
+	}
+	return wps
+}
 
+func (wps *WorkerPools) RegisterWorkerPool(pool common.WorkerPool, size int) {
 	ok := func() bool {
-		workerPoolLock.RLock()
-		defer workerPoolLock.RUnlock()
-		_, ok := workerPoolTasks[pool]
+		wps.workerPoolLock.RLock()
+		defer wps.workerPoolLock.RUnlock()
+		_, ok := wps.workerPoolTasks[pool]
 		return ok
 	}()
 
 	if !ok {
-		workerPoolLock.Lock()
-		defer workerPoolLock.Unlock()
-		_, ok := workerPoolTasks[pool]
+		wps.workerPoolLock.Lock()
+		defer wps.workerPoolLock.Unlock()
+		_, ok := wps.workerPoolTasks[pool]
 		if !ok {
-			tasks := make(chan func() error, Config.System.WorkerPoolSize)
-			workerPoolTasks[pool] = tasks
+			tasks := make(chan func() error, wps.env.WorkerPoolSize)
+			wps.workerPoolTasks[pool] = tasks
 			for i := 0; i < size; i++ {
 				go func() {
-					SetNonExpiringMDCValue("reqId", "wp-"+pool.String()+strconv.Itoa(i))
 					for task := range tasks {
 						err := task()
 						if err != nil {
@@ -49,19 +59,19 @@ func RegisterWorkerPool(pool common.WorkerPool, size int) {
 	}
 }
 
-func SubmitWorkerPool(ctx context.Context, pool common.WorkerPool, task func() error) error {
-	workerPoolOnce.Do(func() {
-		workerPoolTasks = make(map[common.WorkerPool]chan func() error)
+func (wps *WorkerPools) SubmitWorkerPool(ctx context.Context, pool common.WorkerPool, task func() error) error {
+	wps.workerPoolOnce.Do(func() {
+		wps.workerPoolTasks = make(map[common.WorkerPool]chan func() error)
 	})
 
 	wp, ok := func() (chan func() error, bool) {
-		workerPoolLock.RLock()
-		defer workerPoolLock.RUnlock()
-		wp, ok := workerPoolTasks[pool]
+		wps.workerPoolLock.RLock()
+		defer wps.workerPoolLock.RUnlock()
+		wp, ok := wps.workerPoolTasks[pool]
 		return wp, ok
 	}()
 	if !ok {
-		return NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return errors.New("worker pool not found: " + strconv.Itoa(int(pool)))
 	}
 	wp <- task
 	return nil

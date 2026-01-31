@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -210,10 +213,18 @@ type CurrencyConfigQuery struct {
 }
 
 type CurrencyConfigDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewCurrencyConfigDao() *CurrencyConfigDao {
-	return &CurrencyConfigDao{}
+func NewCurrencyConfigDao(db infra.Database, env *lib.Env) *CurrencyConfigDao {
+	return &CurrencyConfigDao{db: db, env: env}
+}
+
+func (ad *CurrencyConfigDao) WithTx(tx *gorm.DB) *CurrencyConfigDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (CurrencyConfig) TableName() string {
@@ -225,7 +236,7 @@ func (ad *CurrencyConfigDao) ListByCurrency(ctx context.Context, currency common
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*CurrencyConfig, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(CurrencyConfig{}).
@@ -249,7 +260,7 @@ func (ad *CurrencyConfigDao) ListByCurrency(ctx context.Context, currency common
 
 func (ad *CurrencyConfigDao) List(ctx context.Context) ([]*CurrencyConfig, error) {
 	result := make([]*CurrencyConfig, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(CurrencyConfig{}).
@@ -269,7 +280,7 @@ func (ad *CurrencyConfigDao) List(ctx context.Context) ([]*CurrencyConfig, error
 
 func (ad *CurrencyConfigDao) Get(ctx context.Context, query *CurrencyConfigQuery) (*CurrencyConfig, error) {
 	result := &CurrencyConfig{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(CurrencyConfig{}).
@@ -287,7 +298,7 @@ func (ad *CurrencyConfigDao) Get(ctx context.Context, query *CurrencyConfigQuery
 
 func (ad *CurrencyConfigDao) Gets(ctx context.Context, query *CurrencyConfigQuery) ([]*CurrencyConfig, error) {
 	result := make([]*CurrencyConfig, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(CurrencyConfig{}).
@@ -307,7 +318,7 @@ func (ad *CurrencyConfigDao) Gets(ctx context.Context, query *CurrencyConfigQuer
 
 func (ad *CurrencyConfigDao) Save(ctx context.Context, model *CurrencyConfig) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -324,7 +335,7 @@ func (ad *CurrencyConfigDao) Update(ctx context.Context, query *CurrencyConfigQu
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -458,13 +469,13 @@ func (pd *CurrencyConfigDao) queryChain(query *CurrencyConfigQuery) func(db *gor
 	}
 }
 
-func (pd *CurrencyConfigDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *CurrencyConfigDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (pd *CurrencyConfigDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *CurrencyConfigDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
@@ -473,7 +484,7 @@ func (pd *CurrencyConfigDao) inScope(fieldName string, field interface{}) func(d
 	}
 }
 
-func (pd *CurrencyConfigDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *CurrencyConfigDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {

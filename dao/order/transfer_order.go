@@ -10,6 +10,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -53,10 +56,18 @@ type TransferOrderQuery struct {
 	utils.Page
 }
 type TransferOrderDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewTransferOrderDao() *TransferOrderDao {
-	return &TransferOrderDao{}
+func NewTransferOrderDao(db infra.Database, env *lib.Env) *TransferOrderDao {
+	return &TransferOrderDao{db: db, env: env}
+}
+
+func (trd *TransferOrderDao) WithTx(tx *gorm.DB) *TransferOrderDao {
+	newDao := *trd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (TransferOrder) TableName() string {
@@ -65,7 +76,7 @@ func (TransferOrder) TableName() string {
 
 func (trd *TransferOrderDao) Save(ctx context.Context, model *TransferOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	ret := db.
 		Model(TransferOrder{}).
@@ -78,7 +89,7 @@ func (trd *TransferOrderDao) Save(ctx context.Context, model *TransferOrder) (ui
 }
 
 func (trd *TransferOrderDao) Update(ctx context.Context, query *TransferOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)

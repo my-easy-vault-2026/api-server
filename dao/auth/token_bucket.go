@@ -2,6 +2,9 @@ package auth
 
 import (
 	"time"
+
+	"api-server/infra"
+	"api-server/lib"
 )
 
 type TokenBucketData struct {
@@ -9,10 +12,12 @@ type TokenBucketData struct {
 }
 
 type TokenBucketDao struct {
+	redis infra.Redis
+	env   *lib.Env
 }
 
-func NewTokenBucketDao() *TokenBucketDao {
-	return &TokenBucketDao{}
+func NewTokenBucketDao(redis infra.Redis, env *lib.Env) *TokenBucketDao {
+	return &TokenBucketDao{redis: redis, env: env}
 }
 
 // // Save stores a TokenBucket struct in Redis.

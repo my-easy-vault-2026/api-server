@@ -10,6 +10,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -45,11 +48,18 @@ type ExchangeOrderQuery struct {
 	utils.Page
 }
 type ExchangeOrderDao struct {
-	// Add any necessary fields or methods here
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewExchangeOrderDao() *ExchangeOrderDao {
-	return &ExchangeOrderDao{}
+func NewExchangeOrderDao(db infra.Database, env *lib.Env) *ExchangeOrderDao {
+	return &ExchangeOrderDao{db: db, env: env}
+}
+
+func (ed *ExchangeOrderDao) WithTx(tx *gorm.DB) *ExchangeOrderDao {
+	newDao := *ed
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (ExchangeOrder) TableName() string {
@@ -57,7 +67,7 @@ func (ExchangeOrder) TableName() string {
 }
 func (ed *ExchangeOrderDao) Save(ctx context.Context, model *ExchangeOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 
 	ret := db.
 		Model(ExchangeOrder{}).
@@ -70,7 +80,7 @@ func (ed *ExchangeOrderDao) Save(ctx context.Context, model *ExchangeOrder) (uin
 }
 
 func (ed *ExchangeOrderDao) Update(ctx context.Context, query *ExchangeOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)

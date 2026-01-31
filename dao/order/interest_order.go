@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -57,10 +60,19 @@ type InterestOrderQuery struct {
 	utils.Page
 }
 
-type InterestOrderDao struct{}
+type InterestOrderDao struct {
+	db  infra.Database
+	env *lib.Env
+}
 
-func NewInterestOrderDao() *InterestOrderDao {
-	return &InterestOrderDao{}
+func NewInterestOrderDao(db infra.Database, env *lib.Env) *InterestOrderDao {
+	return &InterestOrderDao{db: db, env: env}
+}
+
+func (ad *InterestOrderDao) WithTx(tx *gorm.DB) *InterestOrderDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (InterestOrder) TableName() string {
@@ -69,7 +81,7 @@ func (InterestOrder) TableName() string {
 
 func (ad *InterestOrderDao) Save(ctx context.Context, model *InterestOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Model(InterestOrder{}).
@@ -83,7 +95,7 @@ func (ad *InterestOrderDao) Save(ctx context.Context, model *InterestOrder) (uin
 
 func (ad *InterestOrderDao) Saves(ctx context.Context, models []*InterestOrder) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Model(InterestOrder{}).
@@ -102,7 +114,7 @@ func (ad *InterestOrderDao) GetByToCardIDCodeCalculatedAt(ctx context.Context, t
 	}
 
 	result := &InterestOrder{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(&InterestOrder{}).
@@ -133,7 +145,7 @@ func (ad *InterestOrderDao) GetByFromCardIDCodeCalculatedAt(ctx context.Context,
 	}
 
 	result := &InterestOrder{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(&InterestOrder{}).
@@ -164,7 +176,7 @@ func (ad *InterestOrderDao) ListByCodeToCardIDCalculatedAt(ctx context.Context, 
 	}
 
 	result := make([]*InterestOrder, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(InterestOrder{}).
@@ -196,7 +208,7 @@ func (ad *InterestOrderDao) ListByCodeToCardIDCalculatedAtOrderByCalculatedAt(ct
 	}
 
 	result := make([]*InterestOrder, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(InterestOrder{}).
@@ -223,8 +235,8 @@ func (ad *InterestOrderDao) ListByCodeToCardIDCalculatedAtOrderByCalculatedAt(ct
 	return result, nil
 }
 
-func (td *InterestOrderDao) Update(ctx context.Context, query *InterestOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+func (ad *InterestOrderDao) Update(ctx context.Context, query *InterestOrderQuery) (int64, error) {
+	db := ad.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)
@@ -288,7 +300,7 @@ func (td *InterestOrderDao) Update(ctx context.Context, query *InterestOrderQuer
 	}
 	ret := db.
 		Model(&InterestOrder{}).
-		Scopes(td.queryChain(query)).
+		Scopes(ad.queryChain(query)).
 		Updates(attrs)
 	if ret.Error == gorm.ErrRecordNotFound {
 		return 0, nil
@@ -383,13 +395,13 @@ func (td *InterestOrderDao) queryChain(query *InterestOrderQuery) func(db *gorm.
 	}
 }
 
-func (td *InterestOrderDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestOrderDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (td *InterestOrderDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestOrderDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
@@ -398,7 +410,7 @@ func (td *InterestOrderDao) inScope(fieldName string, field interface{}) func(db
 	}
 }
 
-func (trd *InterestOrderDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestOrderDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if greater {
 			if equal {
@@ -413,7 +425,7 @@ func (trd *InterestOrderDao) compareScope(fieldName string, field interface{}, g
 	}
 }
 
-func (bd *InterestOrderDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestOrderDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -422,7 +434,7 @@ func (bd *InterestOrderDao) orderByScope(fieldName string, direction common.Orde
 	}
 }
 
-func (cd *InterestOrderDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *InterestOrderDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {

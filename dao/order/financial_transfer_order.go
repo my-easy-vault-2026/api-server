@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -50,10 +53,18 @@ type FinancialTransferOrderQuery struct {
 	utils.Page
 }
 type FinancialTransferOrderDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewFinancialTransferOrderDao() *FinancialTransferOrderDao {
-	return &FinancialTransferOrderDao{}
+func NewFinancialTransferOrderDao(db infra.Database, env *lib.Env) *FinancialTransferOrderDao {
+	return &FinancialTransferOrderDao{db: db, env: env}
+}
+
+func (trd *FinancialTransferOrderDao) WithTx(tx *gorm.DB) *FinancialTransferOrderDao {
+	newDao := *trd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (FinancialTransferOrder) TableName() string {
@@ -62,7 +73,7 @@ func (FinancialTransferOrder) TableName() string {
 
 func (trd *FinancialTransferOrderDao) Save(ctx context.Context, model *FinancialTransferOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	ret := db.
 		Model(FinancialTransferOrder{}).
@@ -76,7 +87,7 @@ func (trd *FinancialTransferOrderDao) Save(ctx context.Context, model *Financial
 
 func (trd *FinancialTransferOrderDao) GetByFromCardIDOrderByCreatedAtDESC(ctx context.Context, fromCardID uint64) (*FinancialTransferOrder, error) {
 	result := &FinancialTransferOrder{}
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	err := db.
 		Model(FinancialTransferOrder{}).
@@ -100,7 +111,7 @@ func (trd *FinancialTransferOrderDao) GetByFromCardIDOrderByCreatedAtDESC(ctx co
 }
 
 func (trd *FinancialTransferOrderDao) Update(ctx context.Context, query *FinancialTransferOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)
@@ -251,7 +262,7 @@ func (trd *FinancialTransferOrderDao) inScope(fieldName string, field interface{
 	}
 }
 
-func (cd *FinancialTransferOrderDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (trd *FinancialTransferOrderDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))

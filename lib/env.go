@@ -40,6 +40,9 @@ type Env struct {
 	MqList   []string `mapstructure:"MQ_LIST"`
 	MqPubsub []string `mapstructure:"MQ_PUBSUB"`
 
+	L2CacheExpire time.Duration `mapstructure:"L2_CACHE_EXPIRE"`
+
+	WorkerPoolSize  int           `mapstructure:"WORKER_POOL_SIZE"`
 	BucketSize      int           `mapstructure:"BUCKET_SIZE"`
 	WriteWait       time.Duration `mapstructure:"WRITE_WAIT"`
 	PongWait        time.Duration `mapstructure:"PONG_WAIT"`

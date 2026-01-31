@@ -1,6 +1,8 @@
 package order
 
 import (
+	"api-server/infra"
+	"api-server/lib"
 	"context"
 	"encoding/json"
 	"errors"
@@ -33,10 +35,12 @@ type Preview struct {
 }
 
 type PreviewDao struct {
+	redis infra.Redis
+	env   *lib.Env
 }
 
-func NewPreviewDao() *PreviewDao {
-	return &PreviewDao{}
+func NewPreviewDao(redis infra.Redis, env *lib.Env) *PreviewDao {
+	return &PreviewDao{redis: redis, env: env}
 }
 
 // Save stores a Preview struct in Redis.
@@ -50,7 +54,7 @@ func (pd *PreviewDao) Save(ctx context.Context, purpose common.PreviewPurpose, k
 	redisKey := utils.GetPreviewRedisKey(purpose, key)
 
 	// Store the JSON data in Redis using the provided key
-	err = utils.RDB.Set(ctx, redisKey, previewJSON, expiration).Err()
+	err = pd.redis.Set(ctx, redisKey, previewJSON, expiration).Err()
 	if err != nil {
 		return err
 	}
@@ -63,7 +67,7 @@ func (pd *PreviewDao) Get(ctx context.Context, purpose common.PreviewPurpose, ke
 	// Retrieve the JSON data from Redis
 	redisKey := utils.GetPreviewRedisKey(purpose, key)
 
-	previewJSON, err := utils.RDB.Get(ctx, redisKey).Result()
+	previewJSON, err := pd.redis.Get(ctx, redisKey).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil
 	}
@@ -89,7 +93,7 @@ func (pd *PreviewDao) Get(ctx context.Context, purpose common.PreviewPurpose, ke
 func (pd *PreviewDao) Remove(ctx context.Context, purpose common.PreviewPurpose, key string) error {
 	// Delete the data from Redis using the provided key
 	redisKey := utils.GetPreviewRedisKey(purpose, key)
-	err := utils.RDB.Del(ctx, redisKey).Err()
+	err := pd.redis.Del(ctx, redisKey).Err()
 	if errors.Is(err, redis.Nil) {
 		return nil
 	}

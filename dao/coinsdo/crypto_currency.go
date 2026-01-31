@@ -57,12 +57,13 @@ type CryptoCurrencyQuery struct {
 }
 
 type CryptoCurrencyDao struct {
-	db  infra.Database
-	env *lib.Env
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
-func NewCryptoCurrencyDao(db infra.Database, env *lib.Env) *CryptoCurrencyDao {
-	return &CryptoCurrencyDao{db: db, env: env}
+func NewCryptoCurrencyDao(db infra.Database, env *lib.Env, redis infra.Redis) *CryptoCurrencyDao {
+	return &CryptoCurrencyDao{db: db, env: env, redis: redis}
 }
 
 func (cc *CryptoCurrencyDao) WithTx(tx *gorm.DB) *CryptoCurrencyDao {
@@ -80,9 +81,9 @@ func (CryptoCurrency) TableName() string {
 
 func (cc *CryptoCurrencyDao) GetCryptoCurrency(ctx context.Context, mainnet common.Mainnet, currency string) (*CryptoCurrency, error) {
 	result := &CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -101,17 +102,17 @@ func (cc *CryptoCurrencyDao) GetCryptoCurrency(ctx context.Context, mainnet comm
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CryptoCurrencyDao) GetCryptoTypeCurrencies(ctx context.Context) ([]*CryptoCurrency, error) {
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -129,17 +130,17 @@ func (cc *CryptoCurrencyDao) GetCryptoTypeCurrencies(ctx context.Context) ([]*Cr
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CryptoCurrencyDao) GetCryptoCurrencies(ctx context.Context) ([]*CryptoCurrency, error) {
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -156,9 +157,9 @@ func (cc *CryptoCurrencyDao) GetCryptoCurrencies(ctx context.Context) ([]*Crypto
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
@@ -168,9 +169,9 @@ func (cc *CryptoCurrencyDao) ListByType(ctx context.Context, t common.AssetType)
 	}
 
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -188,17 +189,17 @@ func (cc *CryptoCurrencyDao) ListByType(ctx context.Context, t common.AssetType)
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CryptoCurrencyDao) GetCryptoCurrencyByCurrencyType(ctx context.Context, currency common.Currency) (*CryptoCurrency, error) {
 	result := &CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -215,9 +216,9 @@ func (cc *CryptoCurrencyDao) GetCryptoCurrencyByCurrencyType(ctx context.Context
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
@@ -228,9 +229,9 @@ func (cc *CryptoCurrencyDao) GetByMainnetProtocolCurrencyType(ctx context.Contex
 	}
 
 	result := &CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -250,9 +251,9 @@ func (cc *CryptoCurrencyDao) GetByMainnetProtocolCurrencyType(ctx context.Contex
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
@@ -263,9 +264,9 @@ func (cc *CryptoCurrencyDao) GetByMainnetCurrency(ctx context.Context, mainnet c
 	}
 
 	result := &CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -284,9 +285,9 @@ func (cc *CryptoCurrencyDao) GetByMainnetCurrency(ctx context.Context, mainnet c
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
@@ -297,9 +298,9 @@ func (cc *CryptoCurrencyDao) GetByMainnet(ctx context.Context, mainnet common.Ma
 	}
 
 	result := &CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -317,9 +318,9 @@ func (cc *CryptoCurrencyDao) GetByMainnet(ctx context.Context, mainnet common.Ma
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
@@ -328,9 +329,9 @@ func (cc *CryptoCurrencyDao) ListByCurrencies(ctx context.Context, currencies []
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -347,18 +348,18 @@ func (cc *CryptoCurrencyDao) ListByCurrencies(ctx context.Context, currencies []
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CryptoCurrencyDao) ListDisplayDecimalsByDistCurrencies(ctx context.Context) ([]*CryptoCurrency, error) {
 
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -375,18 +376,18 @@ func (cc *CryptoCurrencyDao) ListDisplayDecimalsByDistCurrencies(ctx context.Con
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CryptoCurrencyDao) ListMainnetNames(ctx context.Context) ([]*CryptoCurrency, error) {
 
 	result := []*CryptoCurrency{}
-	db := utils.GetDB(ctx)
+	db := cc.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&CryptoCurrency{}).
 			Scopes(cc.queryChain(&CryptoCurrencyQuery{
@@ -403,13 +404,13 @@ func (cc *CryptoCurrencyDao) ListMainnetNames(ctx context.Context) ([]*CryptoCur
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
-func (cd *CryptoCurrencyDao) queryChain(query *CryptoCurrencyQuery) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) queryChain(query *CryptoCurrencyQuery) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 
 		structType := reflect.TypeOf(query.CryptoCurrency)
@@ -425,42 +426,42 @@ func (cd *CryptoCurrencyDao) queryChain(query *CryptoCurrencyQuery) func(db *gor
 			}
 			switch structValue.Field(i).Kind() {
 			case reflect.String:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).String()))
+				db.Scopes(cc.equalScope(fieldName, structValue.Field(i).String()))
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Int()))
+				db.Scopes(cc.equalScope(fieldName, structValue.Field(i).Int()))
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Uint()))
+				db.Scopes(cc.equalScope(fieldName, structValue.Field(i).Uint()))
 			case reflect.Float32, reflect.Float64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Float()))
+				db.Scopes(cc.equalScope(fieldName, structValue.Field(i).Float()))
 			case reflect.Bool:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Bool()))
+				db.Scopes(cc.equalScope(fieldName, structValue.Field(i).Bool()))
 			default:
 				continue
 			}
 		}
 
 		if query.CurrencyIn != nil {
-			db.Scopes(cd.inScope("currency_type", query.CurrencyIn))
+			db.Scopes(cc.inScope("currency_type", query.CurrencyIn))
 		}
 
 		if query.Select != nil {
-			db.Scopes(cd.selectScope(query.Select))
+			db.Scopes(cc.selectScope(query.Select))
 		}
 
-		return db.Scopes(cd.distinctScope(query.Distinct)).
-			Scopes(cd.groupByScope(query.GroupBy)).
-			Scopes(cd.nullScope(query.IsNull, true)).
-			Scopes(cd.nullScope(query.IsNotNull, false))
+		return db.Scopes(cc.distinctScope(query.Distinct)).
+			Scopes(cc.groupByScope(query.GroupBy)).
+			Scopes(cc.nullScope(query.IsNull, true)).
+			Scopes(cc.nullScope(query.IsNotNull, false))
 	}
 }
 
-func (cd *CryptoCurrencyDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (cd *CryptoCurrencyDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
@@ -469,7 +470,7 @@ func (cd *CryptoCurrencyDao) inScope(fieldName string, field interface{}) func(d
 	}
 }
 
-func (cd *CryptoCurrencyDao) selectScope(field []string) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) selectScope(field []string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(field) > 0 {
 			return db.Select(field)
@@ -478,7 +479,7 @@ func (cd *CryptoCurrencyDao) selectScope(field []string) func(db *gorm.DB) *gorm
 	}
 }
 
-func (cd *CryptoCurrencyDao) distinctScope(field interface{}) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) distinctScope(field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if !reflect.ValueOf(field).IsZero() {
 			return db.Distinct(field)
@@ -487,7 +488,7 @@ func (cd *CryptoCurrencyDao) distinctScope(field interface{}) func(db *gorm.DB) 
 	}
 }
 
-func (cd *CryptoCurrencyDao) groupByScope(field string) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) groupByScope(field string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if field != "" {
 			return db.Group(field)
@@ -496,7 +497,7 @@ func (cd *CryptoCurrencyDao) groupByScope(field string) func(db *gorm.DB) *gorm.
 	}
 }
 
-func (cd *CryptoCurrencyDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (cc *CryptoCurrencyDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {

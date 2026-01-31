@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -48,13 +51,6 @@ type User struct {
 	UpdatedAt         time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
-type UserLanguage struct {
-	ID         uint64
-	Language   common.Language `gorm:"default:null"`
-	MerchantID uint64          `gorm:"default:null"`
-	Email      string          `gorm:"column:email"`
-}
-
 type UserQuery struct {
 	User
 	Attrs          User
@@ -69,10 +65,18 @@ type UserQuery struct {
 }
 
 type UserDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewUserDao() *UserDao {
-	return &UserDao{}
+func NewUserDao(db infra.Database, env *lib.Env) *UserDao {
+	return &UserDao{db: db, env: env}
+}
+
+func (ud *UserDao) WithTx(tx *gorm.DB) *UserDao {
+	newDao := *ud
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (User) TableName() string {
@@ -81,7 +85,7 @@ func (User) TableName() string {
 
 func (ud *UserDao) GetByUserID(ctx context.Context, userID uint64) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -103,7 +107,7 @@ func (ud *UserDao) GetByUserID(ctx context.Context, userID uint64) (*User, error
 
 func (ud *UserDao) GetBySystemEmail(ctx context.Context, systemEmail string) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -125,7 +129,7 @@ func (ud *UserDao) GetBySystemEmail(ctx context.Context, systemEmail string) (*U
 
 func (ud *UserDao) GetByUserIDForUpdate(ctx context.Context, userID uint64) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -152,7 +156,7 @@ func (ud *UserDao) GetByUserIDMerchantID(ctx context.Context, userID uint64, mer
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -180,7 +184,7 @@ func (ud *UserDao) GetByEmailMerchantID(ctx context.Context, email string, merch
 	}
 
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -208,7 +212,7 @@ func (ud *UserDao) GetByEmailRole(ctx context.Context, email string, role common
 	}
 
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -235,7 +239,7 @@ func (ud *UserDao) GetByEmailRoleIn(ctx context.Context, email string, roles []c
 	}
 
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -261,7 +265,7 @@ func (ud *UserDao) GetByUserIDPinCode(ctx context.Context, userID uint64, pinCod
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -287,7 +291,7 @@ func (ud *UserDao) ListByUserIDMerchantID(ctx context.Context, userID uint64, me
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -315,7 +319,7 @@ func (ud *UserDao) ListByMerchantUserIDIn(ctx context.Context, userIDs []uint64,
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -343,7 +347,7 @@ func (ud *UserDao) ListByMerchantEmailIn(ctx context.Context, emails []string, m
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -371,7 +375,7 @@ func (ud *UserDao) ListByUserIDIn(ctx context.Context, userIDs []uint64) ([]*Use
 		return nil, nil
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -397,7 +401,7 @@ func (ud *UserDao) ListByUserIDInRole(ctx context.Context, userIDs []uint64, rol
 		return nil, nil
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -425,7 +429,7 @@ func (ud *UserDao) ListByEmail(ctx context.Context, email string) ([]*User, erro
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -452,7 +456,7 @@ func (ud *UserDao) ListByEmailRole(ctx context.Context, email string, role commo
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -476,7 +480,7 @@ func (ud *UserDao) ListByEmailRole(ctx context.Context, email string, role commo
 }
 
 func (ud *UserDao) DeleteByID(ctx context.Context, userID uint64) error {
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	return db.
 		Where("id=?", userID).
@@ -486,7 +490,7 @@ func (ud *UserDao) DeleteByID(ctx context.Context, userID uint64) error {
 func (ud *UserDao) PageAgentUsers(ctx context.Context, promotionCode string, userID uint64, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -519,7 +523,7 @@ func (ud *UserDao) PageByRoleEmailPhone(ctx context.Context, role common.Role, e
 	}
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -554,7 +558,7 @@ func (ud *UserDao) PageByMerchantIDUserIDIn(ctx context.Context, merchantID uint
 	}
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -587,7 +591,7 @@ func (ud *UserDao) PageByRole(ctx context.Context, role common.Role, pageCurrent
 	}
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -620,7 +624,7 @@ func (ud *UserDao) PageByMerchantID(ctx context.Context, merchantID uint64, dire
 
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -652,7 +656,7 @@ func (ud *UserDao) PageByRoleEmailPhoneIDIn(ctx context.Context, role common.Rol
 	}
 	result := make([]*User, 0)
 	s := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err = db.
 		Model(User{}).
@@ -684,7 +688,7 @@ func (ud *UserDao) PageByRoleEmailPhoneIDIn(ctx context.Context, role common.Rol
 
 func (ud *UserDao) GetByUserIDAndPromotionCode(ctx context.Context, userID uint64, promotionCode string) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -707,7 +711,7 @@ func (ud *UserDao) GetByUserIDAndPromotionCode(ctx context.Context, userID uint6
 
 func (ud *UserDao) GetUserIDsByLanguage(ctx context.Context, language common.Language) ([]*User, error) {
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 	err := db.
 		Model(&User{}).
 		Scopes(ud.queryChain(&UserQuery{
@@ -725,26 +729,13 @@ func (ud *UserDao) GetUserIDsByLanguage(ctx context.Context, language common.Lan
 	return result, nil
 }
 
-func (ud *UserDao) GetUserLanguage(ctx context.Context) ([]*UserLanguage, error) {
-	var ret []*UserLanguage
-	db := utils.GetDB(ctx)
-	err := db.Model(&User{}).Find(&ret).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return ret, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
 func (ud *UserDao) GetReferredCountByPromotionCode(ctx context.Context, promotionCode string) (int64, error) {
 	if promotionCode == "" {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := int64(0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -765,7 +756,7 @@ func (ud *UserDao) GetReferredCountByPromotionCode(ctx context.Context, promotio
 }
 func (ud *UserDao) GetReferredUserByPromotionCode(ctx context.Context, promotionCode string) ([]*User, error) {
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 	err := db.
 		Model(&User{}).
 		Scopes(ud.queryChain(&UserQuery{
@@ -784,7 +775,7 @@ func (ud *UserDao) GetReferredUserByPromotionCode(ctx context.Context, promotion
 }
 
 func (ud *UserDao) UpdateStatusByUserID(ctx context.Context, userID uint64, status common.UserBlockStatus) error {
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(User{}).
@@ -811,7 +802,7 @@ func (ud *UserDao) UpdateStatusByUserID(ctx context.Context, userID uint64, stat
 }
 
 func (ud *UserDao) UpdateSystemEmailByUserID(ctx context.Context, userID uint64, systemEmail string) error {
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(User{}).
@@ -838,7 +829,7 @@ func (ud *UserDao) UpdateSystemEmailByUserID(ctx context.Context, userID uint64,
 
 func (ud *UserDao) Get(ctx context.Context, query *UserQuery) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -856,7 +847,7 @@ func (ud *UserDao) Get(ctx context.Context, query *UserQuery) (*User, error) {
 
 func (ud *UserDao) Gets(ctx context.Context, query *UserQuery) ([]User, error) {
 	result := make([]User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -876,8 +867,8 @@ func (ud *UserDao) Gets(ctx context.Context, query *UserQuery) ([]User, error) {
 
 func (ud *UserDao) Save(ctx context.Context, user *User) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	userID := utils.SnowFlakeUserID.Generate()
+	db := ud.db.WithContext(ctx)
+	userID := utils.RandomID()
 	user.ID = userID
 	ret := db.Create(user)
 
@@ -893,7 +884,7 @@ func (ud *UserDao) Update(ctx context.Context, query *UserQuery) (int64, error) 
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -978,7 +969,7 @@ func (ud *UserDao) UpdateIncr(ctx context.Context, query *UserQuery, field strin
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -1180,7 +1171,7 @@ func (ud *UserDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (ad *UserDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ud *UserDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})

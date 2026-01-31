@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -47,10 +50,19 @@ type AssetSnapshotQuery struct {
 }
 
 type AssetSnapshotDao struct {
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
-func NewAssetSnapshotDao() *AssetSnapshotDao {
-	return &AssetSnapshotDao{}
+func NewAssetSnapshotDao(db infra.Database, env *lib.Env, redis infra.Redis) *AssetSnapshotDao {
+	return &AssetSnapshotDao{db: db, env: env, redis: redis}
+}
+
+func (ad *AssetSnapshotDao) WithTx(tx *gorm.DB) *AssetSnapshotDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (AssetSnapshot) TableName() string {
@@ -59,9 +71,9 @@ func (AssetSnapshot) TableName() string {
 
 func (ad *AssetSnapshotDao) GetByCode(ctx context.Context, code common.FinancialCode) (*AssetSnapshot, error) {
 	result := &AssetSnapshot{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(&AssetSnapshot{}).
 			Scopes(ad.queryChain(&AssetSnapshotQuery{
@@ -78,16 +90,16 @@ func (ad *AssetSnapshotDao) GetByCode(ctx context.Context, code common.Financial
 				return nil, tx.Error
 			}
 			return result, nil
-		}, &utils.L2CacheConfig{
+		}, &infra.L2CacheConfig{
 			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *AssetSnapshotDao) List(ctx context.Context) ([]*AssetSnapshot, error) {
 
 	result := make([]*AssetSnapshot, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(AssetSnapshot{}).
@@ -107,7 +119,7 @@ func (ad *AssetSnapshotDao) List(ctx context.Context) ([]*AssetSnapshot, error) 
 
 func (ad *AssetSnapshotDao) Get(ctx context.Context, query *AssetSnapshotQuery) (*AssetSnapshot, error) {
 	result := &AssetSnapshot{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(AssetSnapshot{}).
@@ -125,7 +137,7 @@ func (ad *AssetSnapshotDao) Get(ctx context.Context, query *AssetSnapshotQuery) 
 
 func (ad *AssetSnapshotDao) Gets(ctx context.Context, query *AssetSnapshotQuery) ([]*AssetSnapshot, error) {
 	result := make([]*AssetSnapshot, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(AssetSnapshot{}).
@@ -145,7 +157,7 @@ func (ad *AssetSnapshotDao) Gets(ctx context.Context, query *AssetSnapshotQuery)
 
 func (ad *AssetSnapshotDao) Save(ctx context.Context, model *AssetSnapshot) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -155,9 +167,9 @@ func (ad *AssetSnapshotDao) Save(ctx context.Context, model *AssetSnapshot) (uin
 	return model.ID, nil
 }
 
-func (trd *AssetSnapshotDao) Saves(ctx context.Context, models []*AssetSnapshot) (int64, error) {
+func (ad *AssetSnapshotDao) Saves(ctx context.Context, models []*AssetSnapshot) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Model(AssetSnapshot{}).
@@ -171,7 +183,7 @@ func (trd *AssetSnapshotDao) Saves(ctx context.Context, models []*AssetSnapshot)
 
 func (ad *AssetSnapshotDao) Update(ctx context.Context, query *AssetSnapshotQuery) (int64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -249,11 +261,11 @@ func (ad *AssetSnapshotDao) Update(ctx context.Context, query *AssetSnapshotQuer
 	return ret.RowsAffected, nil
 }
 
-func (cd *AssetSnapshotDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
+func (ad *AssetSnapshotDao) DeleteByID(ctx context.Context, id uint64) (int64, error) {
 	if id == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.
 		Delete(&AssetSnapshot{
@@ -271,7 +283,7 @@ func (cd *AssetSnapshotDao) DeleteByID(ctx context.Context, id uint64) (int64, e
 	return ret.RowsAffected, nil
 }
 
-func (cd *AssetSnapshotDao) queryChain(query *AssetSnapshotQuery) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) queryChain(query *AssetSnapshotQuery) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 
 		structType := reflect.TypeOf(query.AssetSnapshot)
@@ -288,17 +300,17 @@ func (cd *AssetSnapshotDao) queryChain(query *AssetSnapshotQuery) func(db *gorm.
 			}
 			switch structValue.Field(i).Kind() {
 			case reflect.String:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).String()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).String()))
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Int()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Int()))
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Uint()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Uint()))
 			case reflect.Float32, reflect.Float64:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Float()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Float()))
 			case reflect.Bool:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Bool()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Bool()))
 			case reflect.Pointer:
-				db.Scopes(cd.equalScope(fieldName, structValue.Field(i).Interface()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Interface()))
 			case reflect.Struct:
 				ptr := structPtrValue.Elem().Field(i).Addr().Interface()
 				switch reflect.TypeOf(ptr) {
@@ -317,7 +329,7 @@ func (cd *AssetSnapshotDao) queryChain(query *AssetSnapshotQuery) func(db *gorm.
 					if value == nil {
 						continue
 					}
-					db.Scopes(cd.equalScope(fieldName, value))
+					db.Scopes(ad.equalScope(fieldName, value))
 				}
 			default:
 				continue
@@ -325,30 +337,30 @@ func (cd *AssetSnapshotDao) queryChain(query *AssetSnapshotQuery) func(db *gorm.
 		}
 
 		if query.ForUpdate {
-			db.Scopes(cd.forScope("UPDATE"))
+			db.Scopes(ad.forScope("UPDATE"))
 		}
 
 		if query.ForShare {
-			db.Scopes(cd.forScope("SHARE"))
+			db.Scopes(ad.forScope("SHARE"))
 		}
 
 		return db
 	}
 }
 
-func (cd *AssetSnapshotDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (cd *AssetSnapshotDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)
 	}
 }
 
-func (cd *AssetSnapshotDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})
@@ -357,7 +369,7 @@ func (cd *AssetSnapshotDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (cd *AssetSnapshotDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) compareScope(fieldName string, field interface{}, greater bool, equal bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if greater {
 			if equal {
@@ -372,7 +384,7 @@ func (cd *AssetSnapshotDao) compareScope(fieldName string, field interface{}, gr
 	}
 }
 
-func (cd *AssetSnapshotDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) nullScope(fieldNames []string, isNull bool) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if len(fieldNames) != 0 {
 			for _, fieldName := range fieldNames {
@@ -390,7 +402,7 @@ func (cd *AssetSnapshotDao) nullScope(fieldNames []string, isNull bool) func(db 
 	}
 }
 
-func (cd *AssetSnapshotDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) orderByScope(fieldName string, direction common.OrderDirection) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if fieldName != "" && direction != 0 {
 			return db.Order(fmt.Sprintf("`%s` %s", fieldName, direction.String()))
@@ -399,7 +411,7 @@ func (cd *AssetSnapshotDao) orderByScope(fieldName string, direction common.Orde
 	}
 }
 
-func (cd *AssetSnapshotDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
+func (ad *AssetSnapshotDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if page != 0 && page != 0 {
 			offset := size * (page - 1)
