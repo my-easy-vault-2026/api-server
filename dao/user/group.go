@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -37,10 +40,21 @@ type GroupQuery struct {
 }
 
 type GroupDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewGroupDao() *GroupDao {
-	return &GroupDao{}
+func NewGroupDao(db infra.Database, env *lib.Env) *GroupDao {
+	return &GroupDao{db: db, env: env}
+}
+
+func (gd *GroupDao) WithTx(tx *gorm.DB) *GroupDao {
+	if gd == nil {
+		return gd
+	}
+	newDao := *gd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Group) TableName() string {

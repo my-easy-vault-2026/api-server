@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -50,10 +53,21 @@ type AssetQuery struct {
 }
 
 type AssetDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewAssetDao() *AssetDao {
-	return &AssetDao{}
+func NewAssetDao(db infra.Database, env *lib.Env) *AssetDao {
+	return &AssetDao{db: db, env: env}
+}
+
+func (ad *AssetDao) WithTx(tx *gorm.DB) *AssetDao {
+	if ad == nil {
+		return ad
+	}
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Asset) TableName() string {

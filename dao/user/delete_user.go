@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -41,10 +44,21 @@ type DeleteUserQuery struct {
 }
 
 type DeleteUserDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewDeleteUserDao() *DeleteUserDao {
-	return &DeleteUserDao{}
+func NewDeleteUserDao(db infra.Database, env *lib.Env) *DeleteUserDao {
+	return &DeleteUserDao{db: db, env: env}
+}
+
+func (ud *DeleteUserDao) WithTx(tx *gorm.DB) *DeleteUserDao {
+	if ud == nil {
+		return ud
+	}
+	newDao := *ud
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (DeleteUser) TableName() string {

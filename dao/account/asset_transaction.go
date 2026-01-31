@@ -5,7 +5,11 @@ import (
 	"shared-modules/common"
 	"shared-modules/utils"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type AssetTransaction struct {
@@ -21,15 +25,30 @@ type AssetTransaction struct {
 }
 
 type AssetTransactionDao struct {
+	db       infra.Database
+	env      *lib.Env
 	assetDao *AssetDao
 	billDao  *BillDao
 }
 
-func NewAssetTransactionDao() *AssetTransactionDao {
+func NewAssetTransactionDao(db infra.Database, env *lib.Env) *AssetTransactionDao {
 	return &AssetTransactionDao{
-		assetDao: NewAssetDao(),
-		billDao:  NewBillDao(),
+		db:       db,
+		env:      env,
+		assetDao: NewAssetDao(db, env),
+		billDao:  NewBillDao(db, env),
 	}
+}
+
+func (td *AssetTransactionDao) WithTx(tx *gorm.DB) *AssetTransactionDao {
+	if td == nil {
+		return td
+	}
+	newDao := *td
+	newDao.db = infra.Database{DB: tx}
+	newDao.assetDao = td.assetDao.WithTx(tx)
+	newDao.billDao = td.billDao.WithTx(tx)
+	return &newDao
 }
 
 func (td *AssetTransactionDao) BatchTransaction(ctx context.Context, transactions []*AssetTransaction, orderType common.TransactionRecordType, allowNeg bool) error {

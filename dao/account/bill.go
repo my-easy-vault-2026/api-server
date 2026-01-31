@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -50,10 +53,21 @@ type BillQuery struct {
 }
 
 type BillDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewBillDao() *BillDao {
-	return &BillDao{}
+func NewBillDao(db infra.Database, env *lib.Env) *BillDao {
+	return &BillDao{db: db, env: env}
+}
+
+func (bd *BillDao) WithTx(tx *gorm.DB) *BillDao {
+	if bd == nil {
+		return bd
+	}
+	newDao := *bd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Bill) TableName() string {

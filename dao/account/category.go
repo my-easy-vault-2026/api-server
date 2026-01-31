@@ -13,6 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -77,14 +80,25 @@ type CategoryQuery struct {
 }
 
 type CategoryDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
 func (Category) TableName() string {
 	return "asset_category"
 }
 
-func NewCategoryDao() *CategoryDao {
-	return &CategoryDao{}
+func NewCategoryDao(db infra.Database, env *lib.Env) *CategoryDao {
+	return &CategoryDao{db: db, env: env}
+}
+
+func (md *CategoryDao) WithTx(tx *gorm.DB) *CategoryDao {
+	if md == nil {
+		return md
+	}
+	newDao := *md
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (md *CategoryDao) ListByIDs(ctx context.Context, ids []uint64) ([]*Category, error) {

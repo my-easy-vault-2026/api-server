@@ -1,6 +1,8 @@
 package account
 
 import (
+	"api-server/infra"
+	"api-server/lib"
 	"context"
 	"database/sql"
 	"database/sql/driver"
@@ -53,10 +55,24 @@ type AssetDailySnapshotQuery struct {
 }
 
 type AssetDailySnapshotDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewAssetDailySnapshotDao() *AssetDailySnapshotDao {
-	return &AssetDailySnapshotDao{}
+func NewAssetDailySnapshotDao(db infra.Database, env *lib.Env) *AssetDailySnapshotDao {
+	return &AssetDailySnapshotDao{
+		db:  db,
+		env: env,
+	}
+}
+
+func (ad *AssetDailySnapshotDao) WithTx(tx *gorm.DB) *AssetDailySnapshotDao {
+	if ad == nil {
+		return ad
+	}
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (AssetDailySnapshot) TableName() string {

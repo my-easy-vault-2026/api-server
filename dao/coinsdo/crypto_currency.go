@@ -9,6 +9,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -54,10 +57,21 @@ type CryptoCurrencyQuery struct {
 }
 
 type CryptoCurrencyDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewCryptoCurrencyDao() *CryptoCurrencyDao {
-	return &CryptoCurrencyDao{}
+func NewCryptoCurrencyDao(db infra.Database, env *lib.Env) *CryptoCurrencyDao {
+	return &CryptoCurrencyDao{db: db, env: env}
+}
+
+func (cc *CryptoCurrencyDao) WithTx(tx *gorm.DB) *CryptoCurrencyDao {
+	if cc == nil {
+		return cc
+	}
+	newDao := *cc
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (CryptoCurrency) TableName() string {

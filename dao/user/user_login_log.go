@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -37,10 +40,21 @@ type UserLoginLogQuery struct {
 }
 
 type UserLoginLogDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewUserLoginLogDao() *UserLoginLogDao {
-	return &UserLoginLogDao{}
+func NewUserLoginLogDao(db infra.Database, env *lib.Env) *UserLoginLogDao {
+	return &UserLoginLogDao{db: db, env: env}
+}
+
+func (ud *UserLoginLogDao) WithTx(tx *gorm.DB) *UserLoginLogDao {
+	if ud == nil {
+		return ud
+	}
+	newDao := *ud
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (UserLoginLog) TableName() string {

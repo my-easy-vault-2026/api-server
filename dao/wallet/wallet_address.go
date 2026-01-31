@@ -11,6 +11,9 @@ import (
 	"shared-modules/utils"
 	"time"
 
+	"api-server/infra"
+	"api-server/lib"
+
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -42,10 +45,21 @@ type WalletAddressQuery struct {
 }
 
 type WalletAddressDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewWalletAddressDao() *WalletAddressDao {
-	return &WalletAddressDao{}
+func NewWalletAddressDao(db infra.Database, env *lib.Env) *WalletAddressDao {
+	return &WalletAddressDao{db: db, env: env}
+}
+
+func (wd *WalletAddressDao) WithTx(tx *gorm.DB) *WalletAddressDao {
+	if wd == nil {
+		return wd
+	}
+	newDao := *wd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (WalletAddress) TableName() string {
