@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/jinzhu/copier"
 	"github.com/shopspring/decimal"
 )
 
@@ -40,6 +41,59 @@ func NewWalletHandler(cardService *services.CardService,
 		walletService:  walletService,
 		logger:         logger,
 	}
+}
+
+// @Param			request			body		entities.ListCardCategoryForm	true	"body"
+// @Param			X-Token			header		string							true	"User token"
+// @Param			Accept-Language	header		string							false	"accept language"
+// @Success		0				{object}	entities.ListCardCategoryVO		"data"
+// @Router			/web/wallet/listCategory [post]
+// @Tags			web/wallet
+func (ch *WalletHandler) ListCardCategory(c *gin.Context) {
+	form := &entities.ListCardCategoryForm{}
+
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		utils.ReError(c, err)
+		return
+	}
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	if err := validate.Struct(form); err != nil {
+		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		return
+	}
+
+	categories, err := ch.cardService.ListCardCategory(c, form)
+	if err != nil {
+		utils.ReError(c, err)
+		return
+	}
+
+	result := &entities.ListCardCategoryVO{
+		Records: make([]*entities.CardCategoryVO, len(categories)),
+	}
+
+	for i, category := range categories {
+		categoryCopy := &entities.CardCategoryVO{}
+		if err := copier.Copy(&categoryCopy, &category); err != nil {
+			utils.ReError(c, err)
+			return
+		}
+		categoryCopy.Type = category.Type.String()
+		categoryCopy.Currency = category.Currency.String()
+		categoryCopy.CurrencyType = category.CurrencyType.String()
+		categoryCopy.FeeCurrency = category.FeeCurrency.String()
+		categoryCopy.CreatedAt = category.CreatedAt.UnixMilli()
+		categoryCopy.UpdatedAt = category.UpdatedAt.UnixMilli()
+
+		result.Records[i] = categoryCopy
+	}
+
+	utils.ReData(
+		c,
+		result,
+	)
 }
 
 // @Summary		Get all wallets

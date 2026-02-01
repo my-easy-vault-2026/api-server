@@ -1,14 +1,12 @@
-package main
+package router
 
 import (
 	"api-server/api/handlers/web"
+	middleware "api-server/api/middlewares"
 	"api-server/lib"
-	"context"
-	"shared-modules/common"
 	"shared-modules/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/polevpn/elog"
 )
 
 type WebRouter struct {
@@ -24,18 +22,43 @@ type WebRouter struct {
 	transferHandler        *web.TransferHandler
 	commonHandler          *web.CommonHandler
 	exchangeHandler        *web.ExchangeHandler
-	websocketHandler       *web.WebSocketHandler
+	websocketHandler       *web.WebsocketHandler
 }
 
-func NewWebRouter(r *gin.Engine, apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare, logger lib.Logger) *WebRouter {
+var _ IRouter = (*WebRouter)(nil)
+
+func NewWebRouter(r *gin.Engine,
+	rw *gin.Engine,
+	apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare,
+	logger lib.Logger,
+	authHandler *web.AuthHandler,
+	userHandler *web.UserHandler,
+	quoteHandler *web.QuoteHandler,
+	walletHandler *web.WalletHandler,
+	orderHandler *web.OrderHandler,
+	transferHandler *web.TransferHandler,
+	commonHandler *web.CommonHandler,
+	exchangeHandler *web.ExchangeHandler,
+	websocketHandler *web.WebsocketHandler,
+) *WebRouter {
 	return &WebRouter{
 		r:                      r,
+		rw:                     rw,
 		apiAuthorityMiddleWare: apiAuthorityMiddleWare,
 		logger:                 logger,
+		authHandler:            authHandler,
+		userHandler:            userHandler,
+		quoteHandler:           quoteHandler,
+		walletHandler:          walletHandler,
+		orderHandler:           orderHandler,
+		transferHandler:        transferHandler,
+		commonHandler:          commonHandler,
+		exchangeHandler:        exchangeHandler,
+		websocketHandler:       websocketHandler,
 	}
 }
 
-func (wr *WebRouter) SetRoute() {
+func (wr *WebRouter) Setup() {
 
 	w := wr.r.Group("/web", wr.apiAuthorityMiddleWare.Handle())
 	{
@@ -71,40 +94,4 @@ func (wr *WebRouter) SetRoute() {
 	{
 		ww.GET("/websocket/connect/*token", wr.websocketHandler.Connect)
 	}
-
-	if utils.Config.Server.Env == "local" ||
-		utils.Config.Server.Env == "ngrok" ||
-		utils.Config.Server.Env == "dev" ||
-		utils.Config.Server.Env == "test" {
-		t := r.Group("/test")
-		{
-			testHandler := test.NewTestHandler()
-			accountHandler := test.NewAccountHandler()
-
-			t.POST("/account/addAssets", accountHandler.AddAssets)
-			t.POST("/test/forTest", testHandler.ForTest)
-
-		}
-	}
-}
-
-func SubscribeMQ() {
-
-	if err := utils.InitMQ(context.Background(),
-		[]string{
-			utils.GetMsgListKey("api"),
-			utils.GetMsgListKey("api", utils.EnvConfig.GoNode),
-			utils.GetQueueKey("open", "log"),
-			utils.GetQueueKey("open", "log", utils.EnvConfig.GoNode),
-			utils.GetQueueKey("merchant", "account", "export_balance_change"),
-		},
-		[]string{utils.GetPubsubKey("api")},
-	); err != nil {
-		elog.Fatal("init mq failed,", err)
-	}
-}
-
-func SubscribeWS() {
-	commonHandler := websocket.NewCommonHandler()
-	utils.Ws.RegisterHandler(common.MSG_OPCODE_READ, commonHandler.Read)
 }

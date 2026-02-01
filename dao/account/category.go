@@ -28,42 +28,16 @@ type Supported struct {
 }
 
 type Category struct {
-	ID                  uint64 `gorm:"primarykey"`
-	Name                string
-	PreferredName       string `gorm:"default:null"`
-	SecondaryName       string `gorm:"default:null"`
-	Type                common.AssetType
-	CardKind            common.CardKind
-	Currency            common.Currency
-	CurrencyType        common.CurrencyType
-	CardType            common.CardType
-	Organization        common.CardOrganization `gorm:"default:null"`
-	Issuer              string
-	AnnualFee           *decimal.Decimal             `gorm:"default:null"`
-	RenewalFee          *decimal.Decimal             `gorm:"default:null"`
-	ActivationDeposit   *decimal.Decimal             `gorm:"default:null"`
-	ActivationChannel   string                       `gorm:"default:null"`
-	Vendor              common.CardProductVendor     `gorm:"default:null"`
-	WhaleCardType       common.WhaleCardType         `gorm:"default:null"`
-	WhaleCardBin        string                       `gorm:"default:null"`
-	PaycryptoTypeID     string                       `gorm:"default:null"`
-	Format              common.CardFormat            `gorm:"default:null"`
-	SpendLimit          *decimal.Decimal             `gorm:"default:null"`
-	ValidMonths         int                          `gorm:"default:null"`
-	Design              string                       `gorm:"default:null"`
-	CustomDesign        string                       `gorm:"default:null"`
-	Fee                 *decimal.Decimal             `gorm:"default:null"`
-	FeeCurrency         common.Currency              `gorm:"default:null"`
-	Supported           string                       `gorm:"default:null"`
-	CountryGroupID      uint64                       `gorm:"default:null"`
-	RecommendedMainnet  common.Mainnet               `gorm:"default:null"`
-	RecommendedProtocol common.Protocol              `gorm:"default:null"`
-	MerchantID          uint64                       `gorm:"default:null"`
-	Usage               common.CategoryUsage         `gorm:"default:null"`
-	FrontendUsage       common.CategoryFrontendUsage `gorm:"default:null"`
-	ProductId           string                       `gorm:"default:null"`
-	CreatedAt           time.Time                    `gorm:"default:null"`
-	UpdatedAt           time.Time                    `gorm:"default:null;autoUpdateTime:false"`
+	ID           uint64 `gorm:"primarykey"`
+	Name         string
+	Type         common.AssetType
+	Currency     common.Currency
+	CurrencyType common.CurrencyType
+	CardType     common.CardType
+	Nation       string
+	NationCode   common.NationCode
+	CreatedAt    time.Time `gorm:"default:null"`
+	UpdatedAt    time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type CategoryQuery struct {

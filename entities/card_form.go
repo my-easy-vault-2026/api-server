@@ -5,7 +5,6 @@ import (
 	"shared-modules/utils"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/shopspring/decimal"
 )
@@ -62,22 +61,6 @@ type ApplyConfirmByApplePayForm struct {
 }
 
 type ListCardCategoryForm struct {
-	ID                uint64              `json:"id,string"`
-	Name              string              `json:"name"`
-	PreferredName     string              `json:"preferredName,omitempty"`
-	SecondaryName     string              `json:"secondaryName,omitempty"`
-	Type              common.AssetType    `json:"type"`
-	Currency          common.Currency     `json:"currency"`
-	CurrencyType      common.CurrencyType `json:"currencyType"`
-	ActivationDeposit decimal.Decimal     `json:"activationDeposit,omitempty"`
-	Format            common.CardFormat   `json:"format,omitempty"`
-	SpendLimit        decimal.Decimal     `json:"spendLimit,omitempty"`
-	ValidMonths       int                 `json:"validMonths,omitempty"`
-	CardDesign        string              `json:"cardDesign,omitempty"`
-	Fee               decimal.Decimal     `json:"fee,omitempty"`
-	FeeCurrency       common.Currency     `json:"feeCurrency,omitempty"`
-	CreatedAt         time.Time           `json:"createdAt"`
-	UpdatedAt         time.Time           `json:"updatedAt"`
 }
 
 type ListCategoryByUsageForm struct {

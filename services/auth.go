@@ -163,7 +163,7 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user *userDao.User
 	return key, expiredAt, nil
 }
 
-func (as *AuthService) Logout(ctx context.Context, token, deviceID string, userID uint64) error {
+func (as *AuthService) Logout(ctx context.Context, token string, userID uint64) error {
 
 	err := as.tokenDao.Remove(ctx, token)
 
@@ -175,7 +175,7 @@ func (as *AuthService) Logout(ctx context.Context, token, deviceID string, userI
 	return nil
 }
 
-func (as *AuthService) CheckAPIAuthority(ctx context.Context, url string, key string, deviceId string) (*authDao.Token, []*authDao.APIAuthority, error) {
+func (as *AuthService) CheckAPIAuthority(ctx context.Context, url string, key string) (*authDao.Token, []*authDao.APIAuthority, error) {
 
 	auths := make([]*authDao.APIAuthority, 0)
 
@@ -195,7 +195,7 @@ func (as *AuthService) CheckAPIAuthority(ctx context.Context, url string, key st
 		}
 		if user == nil {
 			logger.Warnf("user not exist")
-			err = as.Logout(ctx, key, deviceId, token.UserID)
+			err = as.Logout(ctx, key, token.UserID)
 			if err != nil {
 				logger.Warnf("remove token failed. %v %v", token.UserID, err)
 				return nil, nil, utils.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
