@@ -3,6 +3,7 @@ package web
 import (
 	"api-server/lib"
 	"api-server/services"
+	"net/http"
 	"shared-modules/common"
 	"shared-modules/entities"
 	"shared-modules/logger"
@@ -23,6 +24,8 @@ type WalletHandler struct {
 	systemService  *services.SystemService
 	walletService  *services.WalletService
 	logger         lib.Logger
+	beBuilder      *lib.BEBuilder
+	httpRes        *lib.HttpRes
 }
 
 func NewWalletHandler(cardService *services.CardService,
@@ -31,7 +34,9 @@ func NewWalletHandler(cardService *services.CardService,
 	userService *services.UserService,
 	systemService *services.SystemService,
 	walletService *services.WalletService,
-	logger lib.Logger) *WalletHandler {
+	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
+	httpRes *lib.HttpRes) *WalletHandler {
 	return &WalletHandler{
 		cardService:    cardService,
 		accountService: accountService,
@@ -40,33 +45,34 @@ func NewWalletHandler(cardService *services.CardService,
 		systemService:  systemService,
 		walletService:  walletService,
 		logger:         logger,
+		beBuilder:      beBuilder,
+		httpRes:        httpRes,
 	}
 }
 
-// @Param			request			body		entities.ListCardCategoryForm	true	"body"
 // @Param			X-Token			header		string							true	"User token"
 // @Param			Accept-Language	header		string							false	"accept language"
 // @Success		0				{object}	entities.ListCardCategoryVO		"data"
-// @Router			/web/wallet/listCategory [post]
+// @Router			/web/wallet/category [post]
 // @Tags			web/wallet
-func (ch *WalletHandler) ListCardCategory(c *gin.Context) {
-	form := &entities.ListCardCategoryForm{}
+func (ch *WalletHandler) ListCategory(c *gin.Context) {
+	form := &entities.ListWalletCategoryForm{}
 
-	err := c.ShouldBindJSON(form)
+	err := c.ShouldBindQuery(form)
 	if err != nil {
-		utils.ReError(c, err)
+		ch.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(form); err != nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		ch.httpRes.ReError(c, http.StatusBadRequest, ch.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 
-	categories, err := ch.cardService.ListCardCategory(c, form)
+	categories, err := ch.walletService.ListCategory(c)
 	if err != nil {
-		utils.ReError(c, err)
+		ch.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -77,82 +83,67 @@ func (ch *WalletHandler) ListCardCategory(c *gin.Context) {
 	for i, category := range categories {
 		categoryCopy := &entities.CardCategoryVO{}
 		if err := copier.Copy(&categoryCopy, &category); err != nil {
-			utils.ReError(c, err)
+			ch.httpRes.ReError(c, http.StatusInternalServerError, err)
 			return
 		}
 		categoryCopy.Type = category.Type.String()
 		categoryCopy.Currency = category.Currency.String()
 		categoryCopy.CurrencyType = category.CurrencyType.String()
-		categoryCopy.FeeCurrency = category.FeeCurrency.String()
 		categoryCopy.CreatedAt = category.CreatedAt.UnixMilli()
 		categoryCopy.UpdatedAt = category.UpdatedAt.UnixMilli()
 
 		result.Records[i] = categoryCopy
 	}
 
-	utils.ReData(
+	ch.httpRes.ReData(
 		c,
 		result,
 	)
 }
 
-// @Summary		Get all wallets
-// @Description	Get all wallets of the user
 // @Tags			web/wallet
-// @Param			request			body	entities.ListWalletsForm	true	"body"
 // @Param			X-Token			header	string						true	"User token"
 // @Param			Accept-Language	header	string						false	"accept language"
-// @Router			/web/wallet/list [post]
+// @Router			/web/wallet [post]
 func (wh *WalletHandler) ListWallets(c *gin.Context) {
 
-	form := &entities.ListCardForm{}
+	form := &entities.ListWalletForm{}
 
-	err := c.ShouldBindJSON(form)
+	err := c.ShouldBindQuery(form)
 
 	if err != nil {
-		utils.ReError(c, err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	if err := validate.Struct(form); err != nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 
-	userIDString := c.Request.Header.Get(common.HEADER_X_UID)
-	if userIDString == "" {
-		logger.Error("no X-Uid")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	if !ok {
+		wh.logger.Error("no X-Uid")
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		return
+	}
+	userID, ok := userIDAny.(uint64)
+	if !ok {
+		wh.logger.Error("X-Uid parse failed,", userIDAny)
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
-	userID, err := strconv.ParseUint(userIDString, 10, 64)
+	cards, err := wh.walletService.ListWalletsByUserID(c, userID)
 	if err != nil {
-		logger.Error("X-Uid parse failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
-		return
-	}
-
-	user, err := wh.userService.GetUserRole(c, userID, common.ROLE_USER)
-	if err != nil {
-		utils.ReError(c, err)
-		return
-	}
-	if user == nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_USER_NO_SUCH_USER))
-		return
-	}
-
-	cards, err := wh.cardService.ListWalletsByUserID(c, userID)
-	if err != nil {
-		utils.ReError(c, err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if len(cards) == 0 {
-		utils.ReData(
+		wh.httpRes.ReData(
 			c,
 			&entities.ListCardVO{
 				Records: make([]*entities.CardVO, 0),
@@ -171,13 +162,13 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 
 	assets, err := wh.accountService.ListAssetsByIDInUserID(c, cardIDs, userID)
 	if err != nil {
-		utils.ReError(c, err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if len(assets) != len(cardIDs) {
 		logger.Error("asset wallet mismatch")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_CARD_WALLET_ASSET_MISMATCH))
+		wh.httpRes.ReError(c, http.StatusInternalServerError, wh.beBuilder.NewBusinessError(c, common.CODE_CARD_WALLET_ASSET_MISMATCH))
 		return
 	}
 
@@ -186,25 +177,22 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 		assetMap[asset.ID] = asset.Amount.Copy()
 	}
 
-	result := &entities.ListCardVO{
-		Records: make([]*entities.CardVO, len(cards)),
+	result := &entities.ListWalletsVO{
+		Records: make([]*entities.WalletVO, len(cards)),
 	}
 
 	for i, card := range cards {
 
-		result.Records[i] = &entities.CardVO{
-			ID:            card.ID,
-			UserID:        card.UserID,
-			MerchantID:    card.MerchantID,
-			CategoryID:    card.CategoryID,
-			PreferredName: card.PreferredName,
-			Type:          common.ASSET_TYPE_CARD_PRODUCT.String(),
-			Amount:        assetMap[card.ID].Copy(),
-			Issuer:        card.Issuer,
-			Currency:      card.Currency.String(),
-			Status:        card.Status.String(),
-			CreatedAt:     card.CreatedAt.UnixMilli(),
-			UpdatedAt:     card.UpdatedAt.UnixMilli(),
+		result.Records[i] = &entities.WalletVO{
+			ID:         card.ID,
+			UserID:     card.UserID,
+			CategoryID: card.CategoryID,
+			Amount:     assetMap[card.ID].Copy(),
+			Nation:     card.Nation,
+			Currency:   card.Currency.String(),
+			Status:     card.Status.String(),
+			CreatedAt:  card.CreatedAt.UnixMilli(),
+			UpdatedAt:  card.UpdatedAt.UnixMilli(),
 		}
 
 	}

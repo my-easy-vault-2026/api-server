@@ -3,10 +3,9 @@ package web
 import (
 	"api-server/lib"
 	"api-server/services"
+	"net/http"
 	"shared-modules/common"
 	"shared-modules/entities"
-	"shared-modules/logger"
-	"shared-modules/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -17,12 +16,16 @@ import (
 type AuthHandler struct {
 	authService *services.AuthService
 	logger      lib.Logger
+	beBuilder   *lib.BEBuilder
+	httpRes     *lib.HttpRes
 }
 
-func NewAuthHandler(authServ *services.AuthService, logger lib.Logger) *AuthHandler {
+func NewAuthHandler(authServ *services.AuthService, logger lib.Logger, beBuilder *lib.BEBuilder, httpRes *lib.HttpRes) *AuthHandler {
 	return &AuthHandler{
 		authService: authServ,
 		logger:      logger,
+		beBuilder:   beBuilder,
+		httpRes:     httpRes,
 	}
 }
 
@@ -39,32 +42,32 @@ func (ah *AuthHandler) LoginOrRegister(c *gin.Context) {
 	err := c.ShouldBindJSON(form)
 
 	if err != nil {
-		utils.ReError(c, err)
+		ah.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	if err := validate.Struct(form); err != nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		ah.httpRes.ReError(c, http.StatusBadRequest, ah.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 
 	user, userToken, expiredAt, err := ah.authService.LoginOrCreate(c, form.Email, form.PINCode)
 
 	if err != nil {
-		utils.ReError(c, err)
+		ah.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	res := &entities.LoginOrCreateVO{}
 
 	if err := copier.Copy(res, user); err != nil {
-		utils.ReError(c, err)
+		ah.httpRes.ReError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	utils.ReData(
+	ah.httpRes.ReData(
 		c,
 		res,
 		map[string]string{
@@ -74,35 +77,30 @@ func (ah *AuthHandler) LoginOrRegister(c *gin.Context) {
 	)
 }
 
-// @Summary		Logout
-// @Description	Logout the user by invalidating their token
 // @Tags			web/user
-// @Accept			json
-// @Produce		json
 // @Param			X-Token	header	string	true	"User Token"
 // @Router			/web/user/logout [post]
 func (ah *AuthHandler) Logout(c *gin.Context) {
 
-	userIDString := c.Request.Header.Get(common.HEADER_X_UID)
-	if userIDString == "" {
-		logger.Error("no X-Uid")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	if !ok {
+		ah.logger.Error("no X-Uid")
+		ah.httpRes.ReError(c, http.StatusBadRequest, ah.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
-	userID, err := strconv.ParseUint(userIDString, 10, 64)
-	if err != nil {
-		logger.Error("X-Uid parse failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userID, ok := userIDAny.(uint64)
+	if !ok {
+		ah.logger.Error("X-Uid parse failed,", userIDAny)
+		ah.httpRes.ReError(c, http.StatusBadRequest, ah.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
 	token := c.Request.Header.Get("X-Token")
-	deviceID := c.Request.Header.Get(common.HEADER_X_DEVICE_ID)
 
-	err = ah.authService.Logout(c, token, deviceID, userID)
+	err := ah.authService.Logout(c, token, userID)
 	if err != nil {
-		utils.ReError(c, err)
+		ah.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
-	utils.ReData(c, nil)
+	ah.httpRes.ReData(c, nil)
 }

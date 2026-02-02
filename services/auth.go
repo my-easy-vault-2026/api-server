@@ -32,6 +32,7 @@ type AuthService struct {
 	redis           infra.Redis
 	env             *lib.Env
 	logger          lib.Logger
+	beBuilder       *lib.BEBuilder
 }
 
 func NewAuthService(
@@ -44,6 +45,7 @@ func NewAuthService(
 	redis infra.Redis,
 	env *lib.Env,
 	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
 ) *AuthService {
 	return &AuthService{
 		tokenDao:        tokenDao,
@@ -55,6 +57,7 @@ func NewAuthService(
 		redis:           redis,
 		env:             env,
 		logger:          logger,
+		beBuilder:       beBuilder,
 	}
 }
 
@@ -67,7 +70,7 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 	})
 	if err != nil {
 		logger.Warn("db get failed", err)
-		return nil, "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	if user == nil {
@@ -80,7 +83,7 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 		salt, err := utils.GenerateSalt(as.env.SaltLength)
 		if err != nil {
 			logger.Warn("generate salt failed,", err)
-			return nil, "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 
 		// 將密碼與 salt 組合
@@ -89,14 +92,14 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 		hashedPinCode, err := bcrypt.GenerateFromPassword([]byte(saltedPassword), bcrypt.DefaultCost)
 		if err != nil {
 			logger.Warn("hash password failed,", err)
-			return nil, "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 		user.Salt = salt
 		user.PinCode = string(hashedPinCode)
 		userID, err := as.userDao.Save(ctx, user)
 		if err != nil {
 			logger.Warn("save failed,", err)
-			return nil, "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 		logger.Infof("user created: %d", userID)
 	}
@@ -105,7 +108,7 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 	err = bcrypt.CompareHashAndPassword([]byte(user.PinCode), []byte(saltedPassword))
 	if err != nil {
 		logger.Infof("invalid pin code for user: %s", email)
-		return nil, "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_EMAIL_OR_PIN_CODE_INVALID)
+		return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_EMAIL_OR_PIN_CODE_INVALID)
 	}
 
 	key, expiredAt, err := as.GenerateAuthToken(ctx, user, email)

@@ -11,6 +11,8 @@ type WalletVO struct {
 	UserID     uint64              `json:"userId,string"`
 	CategoryID uint64              `json:"categoryId,string"`
 	Currency   string              `json:"currency"`
+	Amount     decimal.Decimal     `json:"amount,string"`
+	Nation     string              `json:"nation"`
 	Status     common.WalletStatus `json:"status"`
 	CreatedAt  int64               `json:"createdAt,string"`
 	UpdatedAt  int64               `json:"updatedAt,string"`

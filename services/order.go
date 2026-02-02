@@ -5,7 +5,6 @@ import (
 	cardDao "api-server/dao/card"
 	orderDao "api-server/dao/order"
 	userDao "api-server/dao/user"
-	walletDao "api-server/dao/wallet"
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
@@ -17,7 +16,6 @@ type OrderService struct {
 	transactionRecordDao *orderDao.TransactionRecordDao
 	cardDao              *cardDao.CardDao
 	categoryDao          *accountDao.CategoryDao
-	walletDao            *walletDao.WalletDao
 	userDao              *userDao.UserDao
 	logger               lib.Logger
 }
@@ -26,7 +24,6 @@ func NewOrderService(
 	transactionRecordDao *orderDao.TransactionRecordDao,
 	cardDao *cardDao.CardDao,
 	categoryDao *accountDao.CategoryDao,
-	walletDao *walletDao.WalletDao,
 	userDao *userDao.UserDao,
 	logger lib.Logger,
 ) *OrderService {
@@ -35,7 +32,6 @@ func NewOrderService(
 		transactionRecordDao: transactionRecordDao,
 		cardDao:              cardDao,
 		categoryDao:          categoryDao,
-		walletDao:            walletDao,
 		userDao:              userDao,
 		logger:               logger,
 	}

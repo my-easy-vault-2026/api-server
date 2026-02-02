@@ -56,6 +56,8 @@ type Env struct {
 	TokenExpireTime     time.Duration `mapstructure:"TOKEN_EXPIRE_TIME"`
 	LoginDataExpireTime time.Duration `mapstructure:"LOGIN_DATA_EXPIRE_TIME"`
 
+	I18NConfigPath string `mapstructure:"I18N_CONFIG_PATH"`
+
 	MailClientID     string `mapstructure:"MAIL_CLIENT_ID"`
 	MailClientSecret string `mapstructure:"MAIL_CLIENT_SECRET"`
 	MailTokenType    string `mapstructure:"MAIL_TOKEN_TYPE"`

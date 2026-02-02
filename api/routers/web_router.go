@@ -62,11 +62,12 @@ func (wr *WebRouter) Setup() {
 
 	w := wr.r.Group("/web", wr.apiAuthorityMiddleWare.Handle())
 	{
-		w.POST("/user/loginOrRegister", wr.authHandler.LoginOrRegister)
+		w.POST("/auth/loginOrRegister", wr.authHandler.LoginOrRegister)
+		w.POST("/auth/logout", wr.authHandler.Logout)
 
-		w.POST("/user/logout", wr.authHandler.Logout)
-		w.POST("/user/getInfo", wr.userHandler.GetInfo)
-		w.GET("/wallet/list", utils.VRHandle(wr.commonHandler.VersionOutdated,
+		w.GET("/user/:id", wr.userHandler.GetInfo)
+
+		w.GET("/wallet", utils.VRHandle(wr.commonHandler.VersionOutdated,
 			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
 			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListWallets),
 		))

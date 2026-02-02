@@ -44,33 +44,13 @@ type DeviceInfo struct {
 }
 
 type GetInfoVO struct {
-	ID               uint64                 `json:"id,string"`
-	Email            string                 `json:"email"`
-	FinishedIdentity string                 `json:"finishedIdentity"`
-	CountryCode      int                    `json:"countryCode,omitempty"` //可能為空
-	PhoneNumber      string                 `json:"phoneNumber,omitempty"` //可能為空
-	KycLevel         common.KYCLevel        `json:"kycLevel,omitempty"`
-	KycStatus        common.KYCStatus       `json:"kycStatus,omitempty"`
-	Gender           string                 `json:"gender"`
-	Channel          string                 `json:"channel,omitempty"`
-	EPoint           decimal.Decimal        `json:"ePoint,omitempty"`
-	EPointLevel      string                 `json:"ePointLevel,omitempty"`
-	EPointCardID     uint64                 `json:"ePointCardId,string,omitempty"`
-	Auto3DS          string                 `json:"auto3ds,omitempty"`
-	AutoTopUp        string                 `json:"autoTopUp,omitempty"`
-	ATMToggle        string                 `json:"atmToggle,omitempty"`
-	CreatedAt        int64                  `json:"createdAt,string"`
-	UpdatedAt        int64                  `json:"updatedAt,string"`
-	Identity         IdentityVO             `json:"identity,omitempty"`
-	Device           DeviceInfo             `json:"device"`
-	Language         common.Language        `json:"language,omitempty"`
-	PromotionCode    string                 `json:"promotionCode,omitempty"`
-	PromotionLink    string                 `json:"promotionLink,omitempty"`
-	ReferrerCode     string                 `json:"referrerCode,omitempty"`
-	BlockStatus      common.UserBlockStatus `json:"blockStatus,omitempty"`
-	LastLoginAt      int64                  `json:"LastLoginAt,string"`
-	Role             common.Role            `json:"role"`
-	GroupIDs         []uint64               `json:"groupIDs"`
+	ID        uint64      `json:"id,string"`
+	Email     string      `json:"email"`
+	Gender    string      `json:"gender"`
+	CreatedAt int64       `json:"createdAt,string"`
+	UpdatedAt int64       `json:"updatedAt,string"`
+	Role      common.Role `json:"role"`
+	GroupIDs  []uint64    `json:"groupIDs"`
 }
 
 type ApplyKycVO struct {

@@ -21,6 +21,7 @@ type WalletService struct {
 	assetDao         *accountDao.AssetDao
 	cardDao          *cardDao.CardDao
 	logger           lib.Logger
+	beBuilder        *lib.BEBuilder
 }
 
 func NewWalletService(
@@ -29,6 +30,7 @@ func NewWalletService(
 	assetDao *accountDao.AssetDao,
 	cardDao *cardDao.CardDao,
 	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
 ) *WalletService {
 	return &WalletService{
 		assetCategoryDao: assetCategoryDao,
@@ -36,7 +38,34 @@ func NewWalletService(
 		assetDao:         assetDao,
 		cardDao:          cardDao,
 		logger:           logger,
+		beBuilder:        beBuilder,
 	}
+}
+
+func (cs *WalletService) ListWalletsByUserID(ctx context.Context, userID uint64) ([]*cardDao.Card, error) {
+
+	cards, err := cs.cardDao.Gets(ctx, &cardDao.CardQuery{
+		Card: cardDao.Card{
+			UserID: userID,
+		},
+	})
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return []*cardDao.Card{}, cs.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	}
+
+	return cards, nil
+}
+
+func (cs *WalletService) ListCategory(ctx context.Context) ([]*accountDao.Category, error) {
+
+	categories, err := cs.categoryDao.ListByTypeUsage(ctx, 0, []common.CategoryUsage{common.CATEGORY_USAGE_USER_DISPLAY})
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return []*accountDao.Category{}, cs.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	}
+
+	return categories, nil
 }
 
 func (ws *WalletService) ListWallets(ctx context.Context, form *entities.ListWalletsForm, userID uint64) ([]*cardDao.Card, error) {
