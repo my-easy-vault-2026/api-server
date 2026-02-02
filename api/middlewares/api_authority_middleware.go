@@ -3,8 +3,8 @@ package middleware
 import (
 	"api-server/lib"
 	"api-server/services"
-	"api-server/utils"
 	"fmt"
+	"net/http"
 	"shared-modules/common"
 	"strconv"
 	"strings"
@@ -15,12 +15,16 @@ import (
 type ApiAuthorityMiddleWare struct {
 	authService *services.AuthService
 	logger      lib.Logger
+	beBuilder   *lib.BEBuilder
+	httpRes     *lib.HttpRes
 }
 
-func NewApiAuthorityMiddleWare(authService *services.AuthService, logger lib.Logger) *ApiAuthorityMiddleWare {
+func NewApiAuthorityMiddleWare(authService *services.AuthService, logger lib.Logger, beBuilder *lib.BEBuilder, httpRes *lib.HttpRes) *ApiAuthorityMiddleWare {
 	return &ApiAuthorityMiddleWare{
 		authService: authService,
 		logger:      logger,
+		beBuilder:   beBuilder,
+		httpRes:     httpRes,
 	}
 }
 
@@ -35,7 +39,7 @@ func (ah *ApiAuthorityMiddleWare) Handle() gin.HandlerFunc {
 
 		err := ah.checkAPIAuth(c, url, key)
 		if err != nil {
-			utils.ReError(c, err)
+			ah.httpRes.ReError(c, http.StatusUnauthorized, err)
 			c.Abort()
 			return
 		}

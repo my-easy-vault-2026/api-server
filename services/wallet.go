@@ -84,32 +84,16 @@ func (ws *WalletService) ListWallets(ctx context.Context, form *entities.ListWal
 	return wallets, nil
 }
 
-func (ws *WalletService) CreateWallet(ctx context.Context, form *entities.CreateWalletForm, userID uint64) (uint64, error) {
-	categoryID := uint64(0)
-	currency := common.Currency(0)
-	if form.CategoryID != 0 {
-		currency = common.Currency(form.CategoryID)
-		categoryID = uint64(form.CategoryID)
-		if !currency.IsValid() {
-			return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CATEGORY)
-		}
-	} else if form.Currency != "" {
-		currency = common.Currency(0).FromString(form.Currency)
-		categoryID = uint64(currency)
-		if !currency.IsValid() {
-			return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CURRENCY)
-		}
-	}
-	if categoryID >= 200 { // TODO: 目前不支援法幣錢包
-		return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_INVALID_CATEGORY)
-	}
+func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, userID uint64) (uint64, error) {
+
+	currency = common.Currency(form.CategoryID)
 	category, err := ws.categoryDao.GetByID(ctx, categoryID)
 	if err != nil {
-		logger.Warn("get failed", err)
-		return 0, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ws.logger.Warn("get failed", err)
+		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	if category == nil {
-		return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CATEGORY)
+		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CATEGORY)
 	}
 	if category.Usage&common.CATEGORY_USAGE_USER_APPLY == 0 {
 		return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_INVALID_CATEGORY)

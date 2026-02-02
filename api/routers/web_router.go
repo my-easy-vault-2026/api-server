@@ -75,7 +75,7 @@ func (wr *WebRouter) Setup() {
 			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
 			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListCategory),
 		))
-		w.POST("/wallet/apply", wr.walletHandler.CreateWallet)
+		w.POST("/wallet", wr.walletHandler.CreateWallet)
 
 		// this api will be deprecated
 		w.GET("/quote/exchangeRates/list", wr.quoteHandler.ListExchangeRate)

@@ -190,38 +190,33 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 			Amount:     assetMap[card.ID].Copy(),
 			Nation:     card.Nation,
 			Currency:   card.Currency.String(),
-			Status:     card.Status.String(),
 			CreatedAt:  card.CreatedAt.UnixMilli(),
 			UpdatedAt:  card.UpdatedAt.UnixMilli(),
 		}
 
 	}
 
-	utils.ReData(
+	wh.httpRes.ReData(
 		c,
 		result,
 	)
 }
 
-// @Summary     Create a new wallet
-// @Description Create a new wallet for the user <br> 幣種列表： BTC ETH  USDT USDC DAI  WBTC  TRX  ADA  BCH  DOGE  LTC  XRP  SOL  BNB  ETC  MATIC
 // @Tags            web/wallet
 // @Param           request         body    entities.CreateWalletForm   true    "body"
 // @Param           X-Token         header  string                      true    "User token"
 // @Param           Accept-Language header  string                      false   "accept language"
-// @Param           X-Extend        header  string                      false   "Extend"
-// @Param           X-Convert       header  string                      false   "Convert"
 // @Router          /web/wallet/apply [post]
 func (wh *WalletHandler) CreateWallet(c *gin.Context) {
 	form := &entities.CreateWalletForm{}
 	err := c.ShouldBindJSON(form)
 	if err != nil {
-		utils.ReError(c, err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(form); err != nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 	userIDString := c.Request.Header.Get(common.HEADER_X_UID)

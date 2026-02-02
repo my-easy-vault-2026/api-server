@@ -22,61 +22,21 @@ import (
 )
 
 type Card struct {
-	ID                  uint64                   `gorm:"column:id"`
-	UserID              uint64                   `gorm:"default:null"`
-	Type                common.AssetType         `gorm:"default:null"`
-	UserFirstName       string                   `gorm:"default:null"`
-	UserLastName        string                   `gorm:"default:null"`
-	ProductName         string                   `gorm:"default:null"`
-	PreferredName       string                   `gorm:"default:null"`
-	SecondaryName       string                   `gorm:"default:null"`
-	Alias               string                   `gorm:"default:null"`
-	CategoryID          uint64                   `gorm:"default:null"`
-	IssueID             string                   `gorm:"default:null"`
-	PANNumber           string                   `gorm:"column:pan_number;default:null"`
-	SecurityCode        string                   `gorm:"default:null"`
-	ExpiredAt           time.Time                `gorm:"default:null"`
-	Currency            common.Currency          `gorm:"default:null"`
-	CurrencyType        common.CurrencyType      `gorm:"default:null"`
-	Amount              *decimal.Decimal         `gorm:"default:null"`
-	Organization        common.CardOrganization  `gorm:"default:null"`
-	Vendor              common.CardProductVendor `gorm:"default:null"`
-	WhaleCardType       common.WhaleCardType     `gorm:"default:null"`
-	WhaleCardBin        string                   `gorm:"default:null"`
-	Issuer              string                   `gorm:"default:null"`
-	Format              common.CardFormat        `gorm:"default:null"`
-	SpendLimit          decimal.Decimal          `gorm:"default:null"`
-	Design              string                   `gorm:"default:null"`
-	CustomDesign        string                   `gorm:"default:null"`
-	MerchantID          uint64                   `gorm:"default:null"`
-	WhaleUserID         uint64                   `gorm:"default:null"`
-	WhaleCardID         uint64                   `gorm:"default:null"`
-	WhaleERCAddress     string                   `gorm:"default:null;column:whale_erc_address"`
-	WhaleTRCAddress     string                   `gorm:"default:null;column:whale_trc_address"`
-	PaycryptoTypeID     string                   `gorm:"default:null"`
-	PaycryptoCardNO     string                   `gorm:"default:null"`
-	EtherfiUserID       string                   `gorm:"default:null"`
-	BalanceType         common.BalanceType       `gorm:"default:null"`
-	ForwardType         common.ForwardType       `gorm:"default:null"`
-	FromAutoTopUp       common.AutoTopUpStatus   `gorm:"default:null"`
-	ToAutoTopUp         common.AutoTopUpStatus   `gorm:"default:null"`
-	Auto3DS             common.Auto3DSStatus     `gorm:"default:null;column:auto_3ds"`
-	ATMToggle           common.ATMToggle         `gorm:"default:null;column:atm_toggle"`
-	AccumulatedEarnings *decimal.Decimal         `gorm:"default:null"`
-	LastEarnings        *decimal.Decimal         `gorm:"default:null"`
-	BlockReason         *common.CardBlockReason  `gorm:"default:null"`
-	FreezeReason        *sql.NullInt32           `gorm:"default:null"` // CardFreezeReason
-	ReapDeleteStatus    common.ReapDeleteStatus  `gorm:"default:null"`
-	Status              common.CardStatus
-	DeliveryStatus      common.DeliveryStatus    `gorm:"default:null"`
-	FreezeStatus        common.CardFreezeStatus  `gorm:"default:null"`
-	EarningStatus       common.CardEarningStatus `gorm:"default:null"`
-	RiskyStatus         common.CardRiskyStatus   `gorm:"default:null"`
-	FrozenAt            time.Time                `gorm:"default:null"`
-	BlockedAt           time.Time                `gorm:"default:null"`
-	DeletedAt           time.Time                `gorm:"default:null"`
-	CreatedAt           time.Time                `gorm:"default:null"`
-	UpdatedAt           time.Time                `gorm:"default:null;autoUpdateTime:false"`
+	ID           uint64              `gorm:"column:id"`
+	UserID       uint64              `gorm:"default:null"`
+	Type         common.AssetType    `gorm:"default:null"`
+	CategoryID   uint64              `gorm:"default:null"`
+	IssueID      string              `gorm:"default:null"`
+	Currency     common.Currency     `gorm:"default:null"`
+	CurrencyType common.CurrencyType `gorm:"default:null"`
+	NationCode   common.NationCode   `gorm:"default:null"`
+	Nation       string              `gorm:"default:null"`
+	Status       common.CardStatus
+	FrozenAt     time.Time `gorm:"default:null"`
+	BlockedAt    time.Time `gorm:"default:null"`
+	DeletedAt    time.Time `gorm:"default:null"`
+	CreatedAt    time.Time `gorm:"default:null"`
+	UpdatedAt    time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type CardQuery struct {
