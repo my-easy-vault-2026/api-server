@@ -4,11 +4,10 @@ import (
 	cardDao "api-server/dao/card"
 	"api-server/lib"
 	"api-server/services"
+	"net/http"
 	"shared-modules/common"
 	"shared-modules/entities"
 	"shared-modules/logger"
-	"shared-modules/utils"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -18,25 +17,32 @@ import (
 type OrderHandler struct {
 	orderService   *services.OrderService
 	coinsdoService *services.CoinsdoService
-	cardService    *services.CardService
+	walletService  *services.WalletService
 	userService    *services.UserService
 	logger         lib.Logger
+	beBuilder      *lib.BEBuilder
+	httpRes        *lib.HttpRes
 }
 
-func NewOrderHandler(orderService *services.OrderService, coinsdoService *services.CoinsdoService, cardService *services.CardService, userService *services.UserService, logger lib.Logger) *OrderHandler {
+func NewOrderHandler(orderService *services.OrderService,
+	coinsdoService *services.CoinsdoService,
+	walletService *services.WalletService,
+	userService *services.UserService,
+	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
+	httpRes *lib.HttpRes) *OrderHandler {
 	return &OrderHandler{
 		orderService:   orderService,
 		coinsdoService: coinsdoService,
-		cardService:    cardService,
+		walletService:  walletService,
 		userService:    userService,
 		logger:         logger,
+		beBuilder:      beBuilder,
+		httpRes:        httpRes,
 	}
 }
 
-// @Summary		Page List Transaction Records
-// @Description	Page List transaction records based on provided filters. <br> walletID和cardID和categoryID擇一放入
 // @Tags			web/order
-// @Produce		json
 // @Param			walletID		query	uint64	false	"Wallet ID"
 // @Param			current			query	int		false	"Current page"
 // @Param			pageSize		query	int		false	"Page size"
@@ -51,32 +57,31 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	if err := validate.Struct(form); err != nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
+		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 
-	userIDString := c.Request.Header.Get(common.HEADER_X_UID)
-	if userIDString == "" {
-		logger.Error("no X-Uid")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	if !ok {
+		oh.logger.Error("no X-Uid")
+		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
-
-	userID, err := strconv.ParseUint(userIDString, 10, 64)
-	if err != nil {
-		logger.Error("X-Uid parse failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userID, ok := userIDAny.(uint64)
+	if !ok {
+		oh.logger.Error("X-Uid parse failed,", userIDAny)
+		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
 	user, err := oh.userService.GetUserRole(c, userID, common.ROLE_USER)
 	if err != nil {
-		utils.ReError(c, err)
+		oh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	if user == nil {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_USER_NO_SUCH_USER))
+		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_USER_NO_SUCH_USER))
 		return
 	}
 
@@ -85,13 +90,13 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		form.Current,
 		form.PageSize)
 	if err != nil {
-		utils.ReError(c, err)
+		oh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	decimals, err := oh.coinsdoService.ListDisplayDecimals(c)
 	if err != nil {
-		utils.ReError(c, err)
+		oh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 	decimals[0] = 10 // 避免幣種為空
@@ -102,27 +107,14 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		cardIDs = append(cardIDs, record.ToCardID)
 	}
 
-	cards, err := oh.cardService.ListCard(c, &entities.ListCardForm{
-		IDIn: cardIDs,
-	}, 0, 0)
+	cards, err := oh.walletService.ListWalletByUserIDWalletID(c, userID, cardIDs)
 	if err != nil {
-		utils.ReError(c, err)
+		oh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 	cardMap := make(map[uint64]*cardDao.Card)
 	for _, card := range cards {
 		cardMap[card.ID] = card
-	}
-
-	acceptLang := c.Request.Header.Get("Accept-Language")
-	languages, err := utils.MatchLang(acceptLang)
-	if err != nil {
-		logger.Warn("match failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
-		return
-	}
-	if len(languages) == 0 {
-		languages = []string{"en"}
 	}
 
 	recordsCopy := make([]*entities.TransactionRecordVO, len(records))
@@ -131,7 +123,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		err := copier.Copy(recordsCopy[i], v)
 		if err != nil {
 			logger.Warnf("copy [%v] error, %v", v, err)
-			utils.ReError(c, err)
+			oh.httpRes.ReError(c, http.StatusInternalServerError, err)
 			return
 		}
 		recordsCopy[i].Type = v.Type.String()
@@ -148,7 +140,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 	}
 
 	result := &entities.PageTransactionRecordsVO{
-		PageData: utils.PageData[[]*entities.TransactionRecordVO]{
+		PageData: common.PageData[[]*entities.TransactionRecordVO]{
 			Current:  current,
 			PageSize: pageSize,
 			Total:    total,
@@ -156,7 +148,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		},
 	}
 
-	utils.ReData(
+	oh.httpRes.ReData(
 		c,
 		result,
 	)

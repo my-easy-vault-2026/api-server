@@ -77,14 +77,6 @@ type ListPrivacyInfoVO struct {
 	Records []*PrivacyInfoVO `json:"records"`
 }
 
-type ExchangeRateVO struct {
-	BaseCurrency  string          `json:"baseCurrency"`
-	QuoteCurrency string          `json:"quoteCurrency"`
-	Rate          decimal.Decimal `json:"rate"`
-	Timestamp     int64           `json:"timestamp,string"`
-	Purpose       string          `json:"purpose"`
-}
-
 type ApplyCheckEligibilityVO struct {
 }
 

@@ -7,8 +7,6 @@ import (
 	"shared-modules/common"
 	"shared-modules/entities"
 	"shared-modules/logger"
-	"shared-modules/utils"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -219,25 +217,27 @@ func (wh *WalletHandler) CreateWallet(c *gin.Context) {
 		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
-	userIDString := c.Request.Header.Get(common.HEADER_X_UID)
-	if userIDString == "" {
-		logger.Error("no X-Uid")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+
+	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	if !ok {
+		wh.logger.Error("no X-Uid")
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
-	userID, err := strconv.ParseUint(userIDString, 10, 64)
-	if err != nil {
-		logger.Error("X-Uid parse failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+	userID, ok := userIDAny.(uint64)
+	if !ok {
+		wh.logger.Error("X-Uid parse failed,", userIDAny)
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
-	walletID, err := wh.walletService.CreateWallet(c, form, userID)
+
+	walletID, err := wh.walletService.CreateWallet(c, form.CategoryID, userID)
 	if err != nil {
-		utils.ReError(c, err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 	res := &entities.CreateWalletVO{
 		ID: walletID,
 	}
-	utils.ReData(c, res)
+	wh.httpRes.ReData(c, res)
 }

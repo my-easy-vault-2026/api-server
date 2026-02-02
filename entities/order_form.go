@@ -1,10 +1,8 @@
 package entities
 
-import (
-	"shared-modules/utils"
-)
+import "api-server/common"
 
 type PageTransactionRecordsForm struct {
 	CardID uint64 `json:"cardId,string"`
-	utils.Page
+	common.Page
 }

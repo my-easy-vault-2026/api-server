@@ -2,45 +2,35 @@ package services
 
 import (
 	systemDao "api-server/dao/system"
+	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/entities"
 	"shared-modules/logger"
-	"shared-modules/utils"
 )
 
 type QuoteService struct {
 	parameterDao *systemDao.ParameterDao
 	rateGetters  RateGetters
 	logger       logger.Logger
+	beBuilder    *lib.BEBuilder
 }
 
-func NewQuoteService(parameterDao *systemDao.ParameterDao, rateGetters RateGetters, logger logger.Logger) *QuoteService {
+func NewQuoteService(parameterDao *systemDao.ParameterDao, rateGetters RateGetters, logger logger.Logger, beBuilder *lib.BEBuilder) *QuoteService {
 	return &QuoteService{
 		parameterDao: parameterDao,
 		rateGetters:  rateGetters,
 		logger:       logger,
+		beBuilder:    beBuilder,
 	}
 }
 
-// ListExchangeRate retrieves the real-time exchange rate for a given currency pair.
-func (qs *QuoteService) ListExchangeRate(ctx context.Context, form *entities.ListExchangeRateForm) ([]*utils.ExchangeRate, error) {
+func (qs *QuoteService) GetExchangeRates(ctx context.Context, purpose common.RatePurpose, quote common.Currency, base common.Currency) (*common.ExchangeRate, error) {
 
-	quoteCurrencies := make([]common.Currency, len(form.QuoteCurrencies))
-	for i := range form.QuoteCurrencies {
-		quoteCurrencies[i] = common.Currency(0).FromString(form.QuoteCurrencies[i])
-	}
-
-	rates, err := utils.ListExchangeRate(ctx, common.Currency(0).FromString(form.BaseCurrency), quoteCurrencies)
+	rate, err := qs.rateGetters.Get(purpose).GetExchangeRate(ctx, quote, base)
 	if err != nil {
 		logger.Warn("get exchange rate failed,", err)
 		return nil, err
 	}
 
-	return rates, nil
-}
-
-// ListExchangeRate retrieves the real-time exchange rate for a given currency pair.
-func (qs *QuoteService) GetExchangeRates(ctx context.Context, form *entities.GetExchangeRateForm) (*entities.GetExchangeRateVO, error) {
-	return qs.rateGetters[form.Purpose].GetExchangeRates(ctx, form)
+	return rate, nil
 }

@@ -58,6 +58,9 @@ type Env struct {
 
 	I18NConfigPath string `mapstructure:"I18N_CONFIG_PATH"`
 
+	LockDuration     time.Duration `mapstructure:"LOCK_DURATION"`
+	LockWaitDuration time.Duration `mapstructure:"LOCK_WAIT_DURATION"`
+
 	MailClientID     string `mapstructure:"MAIL_CLIENT_ID"`
 	MailClientSecret string `mapstructure:"MAIL_CLIENT_SECRET"`
 	MailTokenType    string `mapstructure:"MAIL_TOKEN_TYPE"`

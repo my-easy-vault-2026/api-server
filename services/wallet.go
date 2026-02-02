@@ -3,6 +3,7 @@ package services
 import (
 	accountDao "api-server/dao/account"
 	cardDao "api-server/dao/card"
+	"api-server/infra"
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
@@ -16,29 +17,35 @@ import (
 )
 
 type WalletService struct {
-	assetCategoryDao *accountDao.AssetCategoryDao
-	categoryDao      *accountDao.CategoryDao
-	assetDao         *accountDao.AssetDao
-	cardDao          *cardDao.CardDao
-	logger           lib.Logger
-	beBuilder        *lib.BEBuilder
+	categoryDao *accountDao.CategoryDao
+	assetDao    *accountDao.AssetDao
+	cardDao     *cardDao.CardDao
+	logger      lib.Logger
+	beBuilder   *lib.BEBuilder
+	lockers     infra.Lockers
+	env         *lib.Env
+	db          infra.Database
 }
 
 func NewWalletService(
-	assetCategoryDao *accountDao.AssetCategoryDao,
 	categoryDao *accountDao.CategoryDao,
 	assetDao *accountDao.AssetDao,
 	cardDao *cardDao.CardDao,
 	logger lib.Logger,
 	beBuilder *lib.BEBuilder,
+	lockers infra.Lockers,
+	env *lib.Env,
+	db infra.Database,
 ) *WalletService {
 	return &WalletService{
-		assetCategoryDao: assetCategoryDao,
-		categoryDao:      categoryDao,
-		assetDao:         assetDao,
-		cardDao:          cardDao,
-		logger:           logger,
-		beBuilder:        beBuilder,
+		categoryDao: categoryDao,
+		assetDao:    assetDao,
+		cardDao:     cardDao,
+		logger:      logger,
+		beBuilder:   beBuilder,
+		lockers:     lockers,
+		env:         env,
+		db:          db,
 	}
 }
 
@@ -83,10 +90,25 @@ func (ws *WalletService) ListWallets(ctx context.Context, form *entities.ListWal
 
 	return wallets, nil
 }
+func (ws *WalletService) ListWalletByUserIDWalletID(ctx context.Context, userID uint64, walletIDs []uint64) ([]*cardDao.Card, error) {
+
+	cards, err := ws.cardDao.Gets(ctx, &cardDao.CardQuery{
+		Card: cardDao.Card{
+			UserID: userID,
+		},
+		IDIn: walletIDs,
+	})
+	if err != nil {
+		logger.Warn("get failed,", err)
+		return []*cardDao.Card{}, ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	}
+
+	return cards, nil
+}
 
 func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, userID uint64) (uint64, error) {
 
-	currency = common.Currency(form.CategoryID)
+	currency := common.Currency(categoryID)
 	category, err := ws.categoryDao.GetByID(ctx, categoryID)
 	if err != nil {
 		ws.logger.Warn("get failed", err)
@@ -95,58 +117,54 @@ func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, us
 	if category == nil {
 		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CATEGORY)
 	}
-	if category.Usage&common.CATEGORY_USAGE_USER_APPLY == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_WALLET_INVALID_CATEGORY)
-	}
-	locker := utils.NewLocker()
+
+	locker := ws.lockers.NewLocker()
 	if err := locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)),
-		utils.Config.System.LockMicroseconds*time.Microsecond,
-		utils.Config.System.LockWaitMicroseconds*time.Microsecond,
+		ws.env.LockDuration*time.Microsecond,
+		ws.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
-		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+		ws.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
-			logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+			ws.logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		}
 	}()
 	var id uint64
 	var tErr error
-	err = utils.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
-		var ctx = context.WithValue(ctx, "db", tx)
+	err = utils.WithTX(ws.db.DB, func(tx *gorm.DB) error {
+		cardDaoTX := cardDao.NewCardDao(ws.db, ws.env, ws.beBuilder)
+		assetDaoTX := accountDao.NewAssetDao(ws.db, ws.env, ws.beBuilder)
 		var wallet *cardDao.Card
-		wallet, tErr = ws.cardDao.GetByUserIDCategoryIDForUpdate(ctx, userID, uint64(currency))
+		wallet, tErr = ws.cardDao.GetByUserIDCategoryIDForUpdate(ctx, userID, categoryID)
 		if tErr != nil {
-			logger.Warn("get failed", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ws.logger.Warn("get failed", tErr)
+			tErr = ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 		if wallet != nil {
 			id = wallet.ID
 			return nil
 		}
-		id, tErr = ws.cardDao.Save(ctx, &cardDao.Card{
-			UserID:        userID,
-			Type:          common.AssetType(currency.Type()),
-			ProductName:   currency.String(),
-			CategoryID:    categoryID,
-			Alias:         currency.String(),
-			Currency:      currency,
-			CurrencyType:  currency.Type(),
-			FromAutoTopUp: common.AUTO_TOP_UP_STATUS_ENABLED,
-			ToAutoTopUp:   common.AUTO_TOP_UP_STATUS_DISABLED,
-			Status:        common.CARD_STATUS_ACTIVATED,
-			FreezeStatus:  common.CARD_FREEZE_STATUS_UNFROZEN,
+		id, tErr = cardDaoTX.Save(ctx, &cardDao.Card{
+			UserID:       userID,
+			Type:         common.AssetType(currency.Type()),
+			CategoryID:   categoryID,
+			Nation:       category.Nation,
+			NationCode:   category.NationCode,
+			Currency:     currency,
+			CurrencyType: currency.Type(),
+			Status:       common.CARD_STATUS_ACTIVATED,
 		})
 		if tErr != nil {
-			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ws.logger.Warn("save failed,", tErr)
+			tErr = ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
-		if _, tErr = ws.assetDao.Save(ctx, &accountDao.Asset{
+		if _, tErr = assetDaoTX.Save(ctx, &accountDao.Asset{
 			ID:           id,
 			UserID:       userID,
 			Type:         currency.AssetType(),
@@ -154,18 +172,19 @@ func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, us
 			Currency:     currency,
 			CurrencyType: currency.Type(),
 		}); tErr != nil {
-			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ws.logger.Warn("save failed,", tErr)
+			tErr = ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 		return nil
 	})
 	if tErr != nil {
+		ws.logger.Warn("transaction failed,", tErr)
 		return 0, tErr
 	}
 	if err != nil {
-		logger.Warn("transaction failed,", err)
-		return 0, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ws.logger.Warn("transaction failed,", err)
+		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	return id, nil
 }

@@ -2,12 +2,10 @@ package entities
 
 import "github.com/shopspring/decimal"
 
-type ListExchangeRateVO struct {
-	Records        []*ExchangeRateVO            `json:"records"`
-	EffectiveRates map[string][]*ExchangeRateVO `json:"effectiveRates,omitempty"`
-	Fees           map[string]decimal.Decimal   `json:"fees,omitempty"`
-}
-
-type GetExchangeRateVO struct {
-	Records map[string]*ExchangeRateVO `json:"records"`
+type ExchangeRateVO struct {
+	Base      string          `json:"base"`
+	Quote     string          `json:"quote"`
+	Rate      decimal.Decimal `json:"rate"`
+	Timestamp int64           `json:"timestamp,string"`
+	Purpose   string          `json:"purpose"`
 }

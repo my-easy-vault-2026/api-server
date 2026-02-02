@@ -49,16 +49,17 @@ type AssetQuery struct {
 	Deleted        bool
 	OrderBy        string
 	OrderDirection common.OrderDirection
-	utils.Page
+	common.Page
 }
 
 type AssetDao struct {
-	db  infra.Database
-	env *lib.Env
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewAssetDao(db infra.Database, env *lib.Env) *AssetDao {
-	return &AssetDao{db: db, env: env}
+func NewAssetDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *AssetDao {
+	return &AssetDao{db: db, env: env, beBuilder: beBuilder}
 }
 
 func (ad *AssetDao) WithTx(tx *gorm.DB) *AssetDao {

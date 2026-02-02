@@ -26,7 +26,6 @@ type Card struct {
 	UserID       uint64              `gorm:"default:null"`
 	Type         common.AssetType    `gorm:"default:null"`
 	CategoryID   uint64              `gorm:"default:null"`
-	IssueID      string              `gorm:"default:null"`
 	Currency     common.Currency     `gorm:"default:null"`
 	CurrencyType common.CurrencyType `gorm:"default:null"`
 	NationCode   common.NationCode   `gorm:"default:null"`
@@ -54,18 +53,20 @@ type CardQuery struct {
 	BlockedAtLessThan time.Time
 	Deleted           bool
 	NotEqual          Card
-	utils.Page
+	common.Page
 }
 
 type CardDao struct {
-	db  infra.Database
-	env *lib.Env
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewCardDao(db infra.Database, env *lib.Env) *CardDao {
+func NewCardDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *CardDao {
 	return &CardDao{
-		db:  db,
-		env: env,
+		db:        db,
+		env:       env,
+		beBuilder: beBuilder,
 	}
 }
 
@@ -77,242 +78,6 @@ func (ad *CardDao) WithTx(tx *gorm.DB) *CardDao {
 
 func (Card) TableName() string {
 	return "card"
-}
-
-func (ad *CardDao) GetByIssueID(ctx context.Context, issueID string) (*Card, error) {
-
-	if issueID == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				IssueID: issueID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByIssueIDs(ctx context.Context, issueIDs []string) ([]*Card, error) {
-	if len(issueIDs) == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card:      Card{},
-			IssueIdIn: issueIDs,
-		})).
-		Scan(result).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByIDIssueIDMerchantID(ctx context.Context, id uint64, issueID string, merchantID uint64) (*Card, error) {
-
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				ID:         id,
-				IssueID:    issueID,
-				MerchantID: merchantID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByIDIssueID(ctx context.Context, id uint64, issueID string) (*Card, error) {
-
-	if id == 0 || issueID == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				ID:      id,
-				IssueID: issueID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByIssueIDDeleted(ctx context.Context, issueID string) (*Card, error) {
-
-	if issueID == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				IssueID: issueID,
-				Status:  common.CARD_STATUS_DELETED,
-			},
-			Deleted: true,
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByWhaleUserID(ctx context.Context, whaleUserID uint64) (*Card, error) {
-
-	if whaleUserID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				WhaleUserID: whaleUserID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetIncludeDeletedByWhaleUserID(ctx context.Context, whaleUserID uint64) (*Card, error) {
-
-	if whaleUserID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				WhaleUserID: whaleUserID,
-			},
-			Deleted: true,
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByWhaleCardID(ctx context.Context, whaleCardID uint64) (*Card, error) {
-
-	if whaleCardID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				WhaleCardID: whaleCardID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByPaycryptoCardNO(ctx context.Context, cardNO string) (*Card, error) {
-
-	if cardNO == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				PaycryptoCardNO: cardNO,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
 }
 
 func (ad *CardDao) GetByUserIDCategoryIDForUpdate(ctx context.Context, userID uint64, categoryID uint64) (*Card, error) {
@@ -401,63 +166,6 @@ func (ad *CardDao) GetByUserIDCategoryID(ctx context.Context, userID uint64, cat
 	return result, nil
 }
 
-func (ad *CardDao) GetByUserIDVendor(ctx context.Context, userID uint64, vendor common.CardProductVendor) (*Card, error) {
-
-	if userID == 0 || vendor == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID: userID,
-				Vendor: vendor,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByUserIDCategoryIDPaycryptoTypeID(ctx context.Context, userID uint64, categoryID uint64, paycryptoTypeID string) (*Card, error) {
-
-	if userID == 0 || categoryID == 0 || paycryptoTypeID == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID:          userID,
-				CategoryID:      categoryID,
-				PaycryptoTypeID: paycryptoTypeID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (ad *CardDao) GetByUserIDInCategoryID(ctx context.Context, userIDs []uint64, categoryID uint64) (*Card, error) {
 
 	if len(userIDs) == 0 || categoryID == 0 {
@@ -483,36 +191,6 @@ func (ad *CardDao) GetByUserIDInCategoryID(ctx context.Context, userIDs []uint64
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
-}
-
-func (ad *CardDao) ListByMerchantID(ctx context.Context, merchantID uint64, assetType common.AssetType) ([]*Card, error) {
-
-	if merchantID == 0 || assetType == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				MerchantID: merchantID,
-				Type:       assetType,
-			},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
 	return result, nil
 }
 
@@ -565,65 +243,6 @@ func (ad *CardDao) ListByTypeUserIDIn(ctx context.Context, t common.AssetType, u
 			Card: Card{
 				Type: t,
 			},
-			UserIDIn: userIDs,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListByIDInMerchantID(ctx context.Context, merchantID uint64, cardIDs []uint64) ([]*Card, error) {
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				MerchantID: merchantID,
-			},
-			IDIn: cardIDs,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListByIDInUserIDInMerchantID(ctx context.Context, merchantID uint64, cardIDs []uint64, userIDs []uint64) ([]*Card, error) {
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				MerchantID: merchantID,
-			},
-			IDIn:     cardIDs,
 			UserIDIn: userIDs,
 		})).
 		Scan(&result).Error
@@ -716,37 +335,6 @@ func (ad *CardDao) ListByUserIDCurrencyType(ctx context.Context, userID uint64, 
 				Currency: currency,
 			},
 			TypeIn: types,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListByUserIDFromAutoTopUpType(ctx context.Context, userID uint64, fromAutoTopUp common.AutoTopUpStatus, t common.AssetType) ([]*Card, error) {
-
-	if userID == 0 || fromAutoTopUp == 0 || t == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID:        userID,
-				FromAutoTopUp: fromAutoTopUp,
-				Type:          t,
-			},
 		})).
 		Scan(&result).Error
 
@@ -954,87 +542,6 @@ func (ad *CardDao) GetByIDForUpdate(ctx context.Context, id uint64) (*Card, erro
 	return result, nil
 }
 
-func (ad *CardDao) GetByIDMerchantID(ctx context.Context, id uint64, merchantID uint64) (*Card, error) {
-	if id == 0 || merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				ID:         id,
-				MerchantID: merchantID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetByIDUserIDMerchantID(ctx context.Context, id uint64, userID uint64, merchantID uint64) (*Card, error) {
-	if id == 0 || userID == 0 || merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				ID:         id,
-				UserID:     userID,
-				MerchantID: merchantID,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) GetsByFreezeStatusIDForShare(ctx context.Context, freezeStatus common.CardFreezeStatus, id uint64) (*Card, error) {
-	if id == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				ID:           id,
-				FreezeStatus: freezeStatus,
-			},
-			ForShare: true,
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (ad *CardDao) GetByUserIDCurrencyTypes(ctx context.Context, userID uint64, currency common.Currency, types []common.AssetType) (*Card, error) {
 	if userID == 0 || currency == 0 || len(types) == 0 {
 		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
@@ -1061,134 +568,6 @@ func (ad *CardDao) GetByUserIDCurrencyTypes(ctx context.Context, userID uint64, 
 		return nil, err
 	}
 	return result, nil
-}
-
-func (ad *CardDao) GetByUserIDCurrencyTypesVendor(ctx context.Context, userID uint64, currency common.Currency, types []common.AssetType, vendor common.CardProductVendor) (*Card, error) {
-	if userID == 0 || currency == 0 || len(types) == 0 || vendor == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &Card{}
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID:   userID,
-				Currency: currency,
-				Vendor:   vendor,
-			},
-			TypeIn: types,
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ad *CardDao) ListByStatusBlockReasonBlockedAtBefore(ctx context.Context, status common.CardStatus, reason common.CardBlockReason, blockedAt time.Time) ([]*Card, error) {
-	if reason == "" || blockedAt.IsZero() || blockedAt.UnixMilli() == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				Status:      status,
-				BlockReason: &reason,
-			},
-			BlockedAtLessThan: utils.DBQueryTime(blockedAt),
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) PageByUserIDMerchantIDCardIDCategoryID(ctx context.Context, userID uint64, cardID uint64, merchantID uint64, categoryID uint64, pageCurrent int, pageSize int) (records []*Card, current int, size int, total int, err error) {
-
-	result := make([]*Card, 0)
-	s := int64(0)
-	db := ad.db.WithContext(ctx)
-
-	err = db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID:     userID,
-				ID:         cardID,
-				MerchantID: merchantID,
-				CategoryID: categoryID,
-			},
-		})).
-		Count(&s).
-		Scopes(ad.queryChain(&CardQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ad *CardDao) PageByUserIDMerchantIDCardIDCurrency(ctx context.Context, userID uint64, cardID uint64, merchantID uint64, currency common.Currency, pageCurrent int, pageSize int) (records []*Card, current int, size int, total int, err error) {
-	if userID == 0 && cardID == 0 && merchantID == 0 && currency == 0 {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	s := int64(0)
-	db := ad.db.WithContext(ctx)
-
-	err = db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				UserID:     userID,
-				ID:         cardID,
-				MerchantID: merchantID,
-				Currency:   currency,
-			},
-		})).
-		Count(&s).
-		Scopes(ad.queryChain(&CardQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
 }
 
 func (ad *CardDao) PageByUserIDInType(ctx context.Context, userIDs []uint64, t common.AssetType, pageCurrent int, pageSize int) (records []*Card, current int, size int, total int, err error) {
@@ -1252,34 +631,6 @@ func (ad *CardDao) ListReapCard(ctx context.Context) ([]*Card, error) {
 	return result, nil
 }
 
-func (ad *CardDao) ListReapPhysicalCards(ctx context.Context) ([]*Card, error) {
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	err := db.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{
-				Type:   common.ASSET_TYPE_CARD_PRODUCT,
-				Vendor: common.CARD_PRODUCT_VENDOR_REAP,
-				Status: common.CARD_STATUS_NOT_ACTIVATED,
-				Format: common.CARD_FORMAT_PHYSICAL,
-			},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
 func (ad *CardDao) Get(ctx context.Context, query *CardQuery) (*Card, error) {
 	result := &Card{}
 	db := ad.db.WithContext(ctx)
@@ -1305,98 +656,6 @@ func (ad *CardDao) Gets(ctx context.Context, query *CardQuery) ([]*Card, error) 
 	err := db.
 		Model(Card{}).
 		Scopes(ad.queryChain(query)).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListReapBlockCardByUserID(ctx context.Context, userID uint64) ([]*Card, error) {
-
-	if userID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	query := db.Model(Card{}).Where("user_id = ? AND status = ? AND vendor = ?", userID, common.CARD_STATUS_BLOCKED, common.CARD_PRODUCT_VENDOR_REAP)
-
-	err := query.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListWhaleAndPayCryptoBlockCardByUserID(ctx context.Context, userID uint64) ([]*Card, error) {
-
-	if userID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	vendors := []common.CardProductVendor{
-		common.CARD_PRODUCT_VENDOR_WHALE,
-		common.CARD_PRODUCT_VENDOR_PAYCRYPTO,
-	}
-
-	query := db.Model(Card{}).Where("user_id = ? AND status = ? AND vendor in (?)", userID, common.CARD_STATUS_BLOCKED, vendors)
-
-	err := query.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Card{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ad *CardDao) ListCryptoBlockCardByUserID(ctx context.Context, userID uint64) ([]*Card, error) {
-
-	if userID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Card, 0)
-	db := ad.db.WithContext(ctx)
-
-	query := db.Model(Card{}).Where("user_id = ? AND status = ? AND type = ?", userID, common.CARD_STATUS_BLOCKED, common.ASSET_TYPE_CRYPTO)
-
-	err := query.
-		Model(Card{}).
-		Scopes(ad.queryChain(&CardQuery{
-			Card: Card{},
-		})).
 		Scan(&result).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {

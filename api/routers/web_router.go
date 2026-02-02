@@ -67,6 +67,7 @@ func (wr *WebRouter) Setup() {
 
 		w.GET("/user/:id", wr.userHandler.GetInfo)
 
+		w.POST("/wallet", wr.walletHandler.CreateWallet)
 		w.GET("/wallet", utils.VRHandle(wr.commonHandler.VersionOutdated,
 			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
 			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListWallets),
@@ -75,14 +76,10 @@ func (wr *WebRouter) Setup() {
 			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
 			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListCategory),
 		))
-		w.POST("/wallet", wr.walletHandler.CreateWallet)
 
-		// this api will be deprecated
-		w.GET("/quote/exchangeRates/list", wr.quoteHandler.ListExchangeRate)
+		w.GET("/quote/exchangeRate/:quote/:base", wr.quoteHandler.GetExchange)
 
-		w.GET("/quote/exchangeRates/getRates", wr.quoteHandler.GetExchange)
-
-		w.POST("/order/transactions/page", wr.orderHandler.PageTransactionRecords)
+		w.POST("/order/transaction", wr.orderHandler.PageTransactionRecords)
 
 		w.POST("/exchange/preview", wr.exchangeHandler.ExchangePreview) // 暫不開放
 		w.POST("/exchange/confirm", wr.exchangeHandler.ExchangeConfirm) // 暫不開放
