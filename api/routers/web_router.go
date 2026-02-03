@@ -81,8 +81,8 @@ func (wr *WebRouter) Setup() {
 
 		w.POST("/order/transaction", wr.orderHandler.PageTransactionRecords)
 
-		w.GET("/exchange/preview", wr.exchangeHandler.ExchangePreview)  // 暫不開放
-		w.POST("/exchange/confirm", wr.exchangeHandler.ExchangeConfirm) // 暫不開放
+		w.GET("/exchange/preview", wr.exchangeHandler.ExchangePreview)
+		w.POST("/exchange/confirm", wr.exchangeHandler.ExchangeConfirm)
 
 		w.POST("/transfer/preview", wr.transferHandler.TransferPreview)
 		w.POST("/transfer/confirm", wr.transferHandler.TransferConfirm)

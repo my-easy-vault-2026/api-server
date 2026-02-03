@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -21,22 +20,21 @@ import (
 
 type ExchangeOrder struct {
 	ID             uint64
-	OrderNO        string
-	UserID         uint64
-	ToAmount       decimal.Decimal
-	ToCardID       uint64
-	ToCategoryID   uint64
-	ToCurrency     common.Currency
-	FromAmount     decimal.Decimal
-	FromCardID     uint64
-	FromCategoryID uint64
-	FromCurrency   common.Currency
-	ExchangeRate   decimal.Decimal
-	Fee            decimal.Decimal
-	TriggerMode    common.ExchangeTriggerMode `gorm:"default:null"`
-	Status         common.ExchangeStatus
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	OrderNO        string                `gorm:"default:null"`
+	UserID         uint64                `gorm:"default:null"`
+	ToAmount       decimal.Decimal       `gorm:"default:null"`
+	ToWalletID     uint64                `gorm:"default:null"`
+	ToCategoryID   uint64                `gorm:"default:null"`
+	ToCurrency     common.Currency       `gorm:"default:null"`
+	FromAmount     decimal.Decimal       `gorm:"default:null"`
+	FromWalletID   uint64                `gorm:"default:null"`
+	FromCategoryID uint64                `gorm:"default:null"`
+	FromCurrency   common.Currency       `gorm:"default:null"`
+	ExchangeRate   decimal.Decimal       `gorm:"default:null"`
+	Fee            decimal.Decimal       `gorm:"default:null"`
+	Status         common.ExchangeStatus `gorm:"default:null"`
+	CreatedAt      time.Time             `gorm:"default:null"`
+	UpdatedAt      time.Time             `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type ExchangeOrderQuery struct {
@@ -45,7 +43,7 @@ type ExchangeOrderQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	StatusIn  []common.ExchangeStatus
-	utils.Page
+	common.Page
 }
 type ExchangeOrderDao struct {
 	db  infra.Database

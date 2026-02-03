@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"math/rand"
 	"shared-modules/common"
-	"shared-modules/entities"
 	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
@@ -162,10 +161,6 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	exchangeRate.Purpose = common.RATE_PURPOSE_FEE
 	rates := []*common.ExchangeRate{exchangeRate}
 
-	// 計算要交換的金額
-
-	toAmount := fromAmount.Div(exchangeRate.Rate)
-
 	// 檢查使用者資產是否足夠進行交換
 	asset, err := es.assetDao.GetByIDUserID(ctx, fromWallet.ID, userID)
 
@@ -276,126 +271,143 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	return
 }
 
-func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.ExchangeConfirmForm, userID uint64) (*string, error) {
+func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, userID uint64) (orderNO string, err error) {
 
-	locker := utils.NewLocker()
-	if err := locker.WaitLock(
+	locker := es.lockers.NewLocker()
+	if err = locker.WaitLock(
 		ctx,
-		utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, form.ExchangeKey),
-		utils.Config.Exchange.PreviewExpireSeconds*time.Second,
-		utils.Config.System.LockWaitMicroseconds*time.Microsecond,
+		utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, key),
+		es.env.PreviewExpiryTime*time.Second,
+		es.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
-		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, form.ExchangeKey), err)
-		return nil, err
+		es.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, key), err)
+		return
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
-			logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, form.ExchangeKey), err)
+			es.logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, key), err)
 		}
 	}()
 
 	user, err := es.userDao.GetByUserID(ctx, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		es.logger.Warn("get failed,", err)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 	if user == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TOP_UP_INCORRECT_PIN_CODE)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	preview, err := es.previewDao.Get(ctx, form.ExchangeKey)
+	preview, err := es.previewDao.Get(ctx, key)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		es.logger.Warn("get failed,", err)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
 	if preview == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TOP_UP_TOP_UP_EXPIRED)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_PREVIEW_EXPIRED)
+		return
 	}
 
 	defer func() {
-		if err := es.previewDao.Remove(ctx, form.ExchangeKey); err != nil {
-			logger.Warn("delete failed,", err)
+		if err := es.previewDao.Remove(ctx, key); err != nil {
+			es.logger.Warn("delete failed,", err)
 		}
 	}()
 
-	if fromAsset, err := es.assetDao.GetByIDUserID(ctx, preview.FromCardID, userID); err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	if fromAsset, err2 := es.assetDao.GetByIDUserID(ctx, preview.FromWalletID, userID); err2 != nil {
+		es.logger.Warn("get failed,", err2)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	} else if fromAsset == nil {
-		logger.Warn("no card asset, ID: %d", preview.FromCardID)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		es.logger.Warn("no card asset, ID: %d", preview.FromWalletID)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	} else if fromAsset.Amount.LessThan(preview.FromAmount) {
-		// TODO: exchange failed
-		return nil, utils.NewBusinessError(ctx, common.CODE_EXCHANGE_INSUFFICIENT_FUND)
+		es.logger.Warn("insufficient funds")
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_INSUFFICIENT_FUNDS)
+		return
 	}
 
-	fromCard, err := es.cardDao.GetByID(ctx, preview.FromCardID)
+	fromWallet, err := es.cardDao.GetByID(ctx, preview.FromWalletID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		es.logger.Warn("get failed,", err)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if fromCard == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+	if fromWallet == nil {
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
-	toCard, err := es.cardDao.GetByID(ctx, preview.ToCardID)
+	toWallet, err := es.cardDao.GetByID(ctx, preview.ToWalletID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		es.logger.Warn("get failed,", err)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if toCard == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+	if toWallet == nil {
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	orderNO := "EXG_" + strconv.FormatUint(preview.FromCardID, 10) + "_" + strconv.FormatUint(preview.ToCardID, 10) +
+	orderNO = "EXG_" + strconv.FormatUint(preview.FromWalletID, 10) + "_" + strconv.FormatUint(preview.ToWalletID, 10) +
 		"_" + strconv.FormatInt(time.Now().Unix(), 10) + strconv.Itoa(int(rnd.Int31n(10000)))
 
-	logger.Infof("start exchanging, card ID: [%d] -> [%d], order NO: [%s]", preview.FromCardID, preview.ToCardID, orderNO)
+	logger.Infof("start exchanging, card ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	var tErr error
-	err = utils.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
-		var ctx = context.WithValue(ctx, "db", tx)
+	err = utils.WithTX(es.db.DB, func(tx *gorm.DB) error {
+		exchangeOrderDaoTX := es.exchangeOrderDao.WithTx(es.db.DB)
+		transactionRecordDaoTX := es.transactionRecordDao.WithTx(es.db.DB)
+		assetTransactionDaoTX := es.assetTransactionDao.WithTx(es.db.DB)
 
 		order := &orderDao.ExchangeOrder{
 			UserID:         userID,
 			OrderNO:        orderNO,
 			FromAmount:     preview.FromAmount,
-			FromCardID:     preview.FromCardID,
+			FromWalletID:   preview.FromWalletID,
 			FromCategoryID: preview.FromCategoryID,
 			FromCurrency:   preview.FromCurrency,
 			ToAmount:       preview.ToAmount,
-			ToCardID:       preview.ToCardID,
+			ToWalletID:     preview.ToWalletID,
 			ToCategoryID:   preview.ToCategoryID,
 			ToCurrency:     preview.ToCurrency,
 			Fee:            preview.ExchangeFee,
-			TriggerMode:    common.EXCHANGE_TRIGGER_MODE_ON_REQUEST,
 			Status:         common.EXCHANGE_STATUS_SUCCESS,
 		}
 
-		for _, rate := range preview.Rate {
-			if rate.BaseCurrency == preview.FromCurrency &&
-				rate.QuoteCurrency == preview.ToCurrency {
+		for _, rate := range preview.Rates {
+			if rate.Purpose == common.RATE_PURPOSE_EXCHANGE {
 				order.ExchangeRate = rate.Rate
 				break
 			}
 		}
 
-		_, tErr = es.exchangeOrderDao.Save(ctx, order)
+		var orderID uint64
+		orderID, tErr = exchangeOrderDaoTX.Save(ctx, order)
 		if tErr != nil {
-			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			es.logger.Warn("save failed,", tErr)
+			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return tErr
+		}
+		if orderID == 0 {
+			es.logger.Warn("save failed,", tErr)
+			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_DB_INSERT_FAILED)
 			return tErr
 		}
 
 		var rowsAffected int64
-		rowsAffected, tErr = es.transactionRecordDao.Saves(ctx, []*orderDao.TransactionRecord{
+		rowsAffected, tErr = transactionRecordDaoTX.Saves(ctx, []*orderDao.TransactionRecord{
 			{
 				Type:                    common.TRANSACTION_RECORD_TYPE_EXCHANGE,
 				TransactionNO:           orderNO,
 				UserID:                  userID,
-				CardID:                  preview.FromCardID,
+				WalletID:                preview.FromWalletID,
 				Income:                  decimal.NewNullDecimal(preview.FromAmount.Neg()),
 				IncomeCategoryID:        preview.FromCategoryID,
 				IncomeCurrency:          preview.FromCurrency,
@@ -403,28 +415,24 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 				AgainstIncomeCategoryID: preview.ToCategoryID,
 				AgainstIncomeCurrency:   preview.ToCurrency,
 				Side:                    common.TRANSACTION_SIDE_FROM,
-				FromCardID:              preview.FromCardID,
+				FromWalletID:            preview.FromWalletID,
 				FromCategoryID:          preview.FromCategoryID,
 				FromCurrency:            preview.FromCurrency,
 				FromAmount:              decimal.NewNullDecimal(preview.FromAmount),
-				FromAlias:               fromCard.Alias,
-				ToCardID:                preview.ToCardID,
+				ToWalletID:              preview.ToWalletID,
 				ToCategoryID:            preview.ToCategoryID,
 				ToCurrency:              preview.ToCurrency,
 				ToAmount:                decimal.NewNullDecimal(preview.ToAmount),
-				ToAlias:                 toCard.Alias,
-				DisplayRate:             preview.DisplayRate,
 				ExchangeRate:            &order.ExchangeRate,
 				ExchangeFee:             &preview.ExchangeFee,
 				ExchangeFeeCurrency:     preview.FromCurrency,
-				ExecutorRole:            common.ROLE_USER,
 				Status:                  common.TRANSACTION_STATUS_EXCHANGE_SUCCESS,
 			},
 			{
 				Type:                    common.TRANSACTION_RECORD_TYPE_EXCHANGE,
 				TransactionNO:           orderNO,
 				UserID:                  userID,
-				CardID:                  preview.ToCardID,
+				WalletID:                preview.ToWalletID,
 				Income:                  decimal.NewNullDecimal(preview.ToAmount),
 				IncomeCategoryID:        preview.ToCategoryID,
 				IncomeCurrency:          preview.ToCurrency,
@@ -432,53 +440,28 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 				AgainstIncomeCategoryID: preview.FromCategoryID,
 				AgainstIncomeCurrency:   preview.FromCurrency,
 				Side:                    common.TRANSACTION_SIDE_TO,
-				FromCardID:              preview.FromCardID,
+				FromWalletID:            preview.FromWalletID,
 				FromCategoryID:          preview.FromCategoryID,
 				FromCurrency:            preview.FromCurrency,
 				FromAmount:              decimal.NewNullDecimal(preview.FromAmount),
-				ToCardID:                preview.ToCardID,
+				ToWalletID:              preview.ToWalletID,
 				ToCategoryID:            preview.ToCategoryID,
 				ToCurrency:              preview.ToCurrency,
 				ToAmount:                decimal.NewNullDecimal(preview.ToAmount),
-				DisplayRate:             preview.DisplayRate,
 				ExchangeRate:            &order.ExchangeRate,
 				ExchangeFee:             &preview.ExchangeFee,
 				ExchangeFeeCurrency:     preview.FromCurrency,
-				ExecutorRole:            common.ROLE_USER,
 				Status:                  common.TRANSACTION_STATUS_EXCHANGE_SUCCESS,
 			},
 		})
 		if err != nil {
-			logger.Warn("saves failed,", err)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			es.logger.Warn("saves failed,", err)
+			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 		if rowsAffected != 2 {
-			logger.Warnf("duplicated save: [%+v]", preview)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-
-		var card *cardDao.Card
-		card, tErr = es.cardDao.GetsByFreezeStatusIDForShare(ctx, common.CARD_FREEZE_STATUS_UNFROZEN, order.FromCardID)
-		if tErr != nil {
-			logger.Warn("get failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-		if card == nil {
-			tErr = utils.NewBusinessError(ctx, common.CODE_EXCHANGE_FROM_CARD_FROZEN)
-			return tErr
-		}
-
-		card, tErr = es.cardDao.GetsByFreezeStatusIDForShare(ctx, common.CARD_FREEZE_STATUS_UNFROZEN, order.ToCardID)
-		if tErr != nil {
-			logger.Warn("get failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-		if card == nil {
-			tErr = utils.NewBusinessError(ctx, common.CODE_EXCHANGE_FROM_CARD_FROZEN)
+			es.logger.Warnf("duplicated save: [%#v]", preview)
+			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_DB_INSERT_FAILED)
 			return tErr
 		}
 
@@ -486,7 +469,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 			// 用戶扣幣
 			{
 				UserID:          userID,
-				CardID:          preview.FromCardID,
+				CardID:          preview.FromWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.FromCategoryID,
 				Currency:        preview.FromCurrency,
@@ -497,7 +480,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 			// 用戶扣手續費
 			{
 				UserID:          userID,
-				CardID:          preview.FromCardID,
+				CardID:          preview.FromWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.FromCategoryID,
 				Currency:        preview.FromCurrency,
@@ -508,7 +491,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 			// 用戶加幣
 			{
 				UserID:          userID,
-				CardID:          preview.ToCardID,
+				CardID:          preview.ToWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.ToCategoryID,
 				Currency:        preview.ToCurrency,
@@ -518,9 +501,9 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 			},
 		}
 
-		tErr = es.assetTransactionDao.BatchTransaction(ctx, transactions, common.TRANSACTION_RECORD_TYPE_EXCHANGE, false)
+		tErr = assetTransactionDaoTX.BatchTransaction(ctx, transactions, common.TRANSACTION_RECORD_TYPE_EXCHANGE, false)
 		if tErr != nil {
-			logger.Warn("transaction failed,", tErr)
+			es.logger.Warn("transaction failed,", tErr)
 			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_ASSET_TRANSACTION_FAILED)
 			return tErr
 		}
@@ -529,18 +512,19 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, form *entities.E
 	})
 
 	if tErr != nil {
-		logger.Warn("transaction failed,", tErr)
-		return nil, tErr
+		es.logger.Warn("transaction failed,", tErr)
+		return
 	}
 
 	if err != nil {
-		logger.Warn("transaction failed,", tErr)
-		return nil, err
+		es.logger.Warn("transaction failed,", err)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_ASSET_TRANSACTION_FAILED)
+		return
 	}
 
-	logger.Infof("exchanged, card ID: [%d] -> [%d], order NO: [%s]", preview.FromCardID, preview.ToCardID, orderNO)
+	es.logger.Infof("exchanged, card ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
-	return &orderNO, nil
+	return
 }
 
 func (es *ExchangeService) createWallet(ctx context.Context, currency common.Currency, userID uint64) (walletID uint64, err error) {

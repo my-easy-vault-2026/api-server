@@ -30,5 +30,5 @@ type TransferPreviewVO struct {
 }
 
 type TransferConfirmVO struct {
-	OrderNO string `json:"orderNO"`
+	OrderNO string `json:"orderNO,omitempty"`
 }

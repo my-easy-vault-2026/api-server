@@ -9,8 +9,7 @@ type ExchangePreviewForm struct {
 }
 
 type ExchangeConfirmForm struct {
-	ExchangeKey string `json:"exchangeKey" validate:"required"`
-	PinCode     string `json:"pinCode"`
+	Key string `json:"key" validate:"required"`
 }
 
 type AutoExchangeForm struct {
