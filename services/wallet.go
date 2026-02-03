@@ -136,8 +136,8 @@ func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, us
 	var id uint64
 	var tErr error
 	err = utils.WithTX(ws.db.DB, func(tx *gorm.DB) error {
-		cardDaoTX := cardDao.NewCardDao(ws.db, ws.env, ws.beBuilder)
-		assetDaoTX := accountDao.NewAssetDao(ws.db, ws.env, ws.beBuilder)
+		cardDaoTX := ws.cardDao.WithTx(ws.db.DB)
+		assetDaoTX := ws.assetDao.WithTx(ws.db.DB)
 		var wallet *cardDao.Card
 		wallet, tErr = ws.cardDao.GetByUserIDCategoryIDForUpdate(ctx, userID, categoryID)
 		if tErr != nil {

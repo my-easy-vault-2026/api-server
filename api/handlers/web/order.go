@@ -101,20 +101,20 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 	}
 	decimals[0] = 10 // 避免幣種為空
 
-	cardIDs := make([]uint64, 0, len(records))
+	walletIDs := make([]uint64, 0, len(records))
 	for _, record := range records {
-		cardIDs = append(cardIDs, record.FromCardID)
-		cardIDs = append(cardIDs, record.ToCardID)
+		walletIDs = append(walletIDs, record.FromWalletID)
+		walletIDs = append(walletIDs, record.ToWalletID)
 	}
 
-	cards, err := oh.walletService.ListWalletByUserIDWalletID(c, userID, cardIDs)
+	wallets, err := oh.walletService.ListWalletByUserIDWalletID(c, userID, walletIDs)
 	if err != nil {
 		oh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
-	cardMap := make(map[uint64]*cardDao.Card)
-	for _, card := range cards {
-		cardMap[card.ID] = card
+	walletMap := make(map[uint64]*cardDao.Card)
+	for _, wallet := range wallets {
+		walletMap[wallet.ID] = wallet
 	}
 
 	recordsCopy := make([]*entities.TransactionRecordVO, len(records))

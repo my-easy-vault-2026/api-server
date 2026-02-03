@@ -23,6 +23,7 @@ import (
 
 type Card struct {
 	ID           uint64              `gorm:"column:id"`
+	Name         string              `gorm:"default:null"`
 	UserID       uint64              `gorm:"default:null"`
 	Type         common.AssetType    `gorm:"default:null"`
 	CategoryID   uint64              `gorm:"default:null"`

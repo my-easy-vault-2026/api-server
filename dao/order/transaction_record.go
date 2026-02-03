@@ -40,7 +40,7 @@ type TransactionRecord struct {
 	Type                    common.TransactionRecordType
 	TransactionNO           string
 	UserID                  uint64
-	CardID                  uint64
+	WalletID                uint64
 	Income                  decimal.NullDecimal
 	IncomeCategoryID        uint64
 	IncomeCurrency          common.Currency
@@ -49,7 +49,7 @@ type TransactionRecord struct {
 	AgainstIncomeCurrency   common.Currency        `gorm:"default:null"`
 	Side                    common.TransactionSide `gorm:"default:null"`
 	FromType                common.AssetType       `gorm:"default:null"`
-	FromCardID              uint64                 `gorm:"default:null"`
+	FromWalletID            uint64                 `gorm:"default:null"`
 	FromCategoryID          uint64                 `gorm:"default:null"`
 	FromCurrency            common.Currency        `gorm:"default:null"`
 	FromAmount              decimal.NullDecimal    `gorm:"default:null"`
@@ -57,7 +57,7 @@ type TransactionRecord struct {
 	FromUserID              uint64                 `gorm:"default:null"`
 	FromEmail               string                 `gorm:"default:null"`
 	ToType                  common.AssetType       `gorm:"default:null"`
-	ToCardID                uint64                 `gorm:"default:null"`
+	ToWalletID              uint64                 `gorm:"default:null"`
 	ToCategoryID            uint64                 `gorm:"default:null"`
 	ToCurrency              common.Currency        `gorm:"default:null"`
 	ToAmount                decimal.NullDecimal    `gorm:"default:null"`

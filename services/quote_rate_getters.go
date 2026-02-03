@@ -18,6 +18,8 @@ func NewRateGetters(defaultRateGetter *DefaultRateGetter) RateGetters {
 	rg := RateGetters{
 		rateGetters: map[common.RatePurpose]IRateGetter{
 			0: defaultRateGetter,
+			1: defaultRateGetter,
+			2: defaultRateGetter,
 		},
 	}
 	rg.defaultRateGetter = defaultRateGetter

@@ -51,7 +51,7 @@ func NewWalletHandler(cardService *services.CardService,
 // @Param			X-Token			header		string							true	"User token"
 // @Param			Accept-Language	header		string							false	"accept language"
 // @Success		0				{object}	entities.ListCardCategoryVO		"data"
-// @Router			/web/wallet/category [post]
+// @Router			/web/wallet/category [get]
 // @Tags			web/wallet
 func (ch *WalletHandler) ListCategory(c *gin.Context) {
 	form := &entities.ListWalletCategoryForm{}
@@ -102,7 +102,7 @@ func (ch *WalletHandler) ListCategory(c *gin.Context) {
 // @Tags			web/wallet
 // @Param			X-Token			header	string						true	"User token"
 // @Param			Accept-Language	header	string						false	"accept language"
-// @Router			/web/wallet [post]
+// @Router			/web/wallet [get]
 func (wh *WalletHandler) ListWallets(c *gin.Context) {
 
 	form := &entities.ListWalletForm{}

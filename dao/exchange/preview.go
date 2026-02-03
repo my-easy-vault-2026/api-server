@@ -18,16 +18,15 @@ import (
 type Preview struct {
 	FromAmount     decimal.Decimal        `json:"depositAmount"`
 	UserID         uint64                 `json:"userId"`
-	FromCardID     uint64                 `json:"fromCardId"`
+	FromWalletID   uint64                 `json:"fromCardId"`
 	FromCategoryID uint64                 `json:"fromCategoryId"`
 	FromCurrency   common.Currency        `json:"fromCurrency"`
 	ToAmount       decimal.Decimal        `json:"receiveAmount"`
-	ToCardID       uint64                 `json:"toCardId"`
+	ToWalletID     uint64                 `json:"toCardId"`
 	ToCategoryID   uint64                 `json:"toCategoryId"`
 	ToCurrency     common.Currency        `json:"toCurrency"`
 	ExchangeFee    decimal.Decimal        `json:"exchangeFee"`
-	Rate           []*common.ExchangeRate `json:"rate,omitempty"`
-	DisplayRate    *decimal.Decimal       `json:"displayRate"`
+	Rates          []*common.ExchangeRate `json:"rate,omitempty"`
 	ExpiredAt      time.Time              `json:"expiredAt"`
 }
 

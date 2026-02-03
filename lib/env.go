@@ -61,6 +61,8 @@ type Env struct {
 	LockDuration     time.Duration `mapstructure:"LOCK_DURATION"`
 	LockWaitDuration time.Duration `mapstructure:"LOCK_WAIT_DURATION"`
 
+	PreviewExpiryTime time.Duration `mapstructure:"PREVIEW_EXPIRY_TIME"`
+
 	MailClientID     string `mapstructure:"MAIL_CLIENT_ID"`
 	MailClientSecret string `mapstructure:"MAIL_CLIENT_SECRET"`
 	MailTokenType    string `mapstructure:"MAIL_TOKEN_TYPE"`

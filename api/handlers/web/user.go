@@ -38,7 +38,7 @@ func NewUserHandler(userService *services.UserService,
 // @Param		request		body		entities.GetInfoForm	true	"body"
 // @Param		X-Token		header		string					true	"X-Token"
 // @Success	0			{object}	entities.GetInfoVO		"data"
-// @Router		/web/user/:id [post]
+// @Router		/web/user/:id [get]
 // @Tags		web/user
 func (uh *UserHandler) GetInfo(c *gin.Context) {
 
