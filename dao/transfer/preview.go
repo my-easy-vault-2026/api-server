@@ -16,31 +16,19 @@ import (
 )
 
 type Preview struct {
-	UserID         uint64                 `json:"userId"`
-	ToAmount       decimal.Decimal        `json:"toAmount"`
-	ToCardID       uint64                 `json:"toCardId"`
-	ToCategoryID   uint64                 `json:"toCategoryId"`
-	ToCurrency     common.Currency        `json:"toCurrency"`
-	ToUserID       uint64                 `json:"toUserId,omitempty"`
-	ToEmail        string                 `json:"toEmail,omitempty"`
-	ToAddress      string                 `json:"toAddress,omitempty"`
-	FromAmount     decimal.Decimal        `json:"fromAmount"`
-	FromCardID     uint64                 `json:"fromCardId"`
-	FromCategoryID uint64                 `json:"fromCategoryId"`
-	FromCurrency   common.Currency        `json:"fromCurrency"`
-	FromEmail      string                 `json:"fromEmail,omitempty"`
-	FromAddress    string                 `json:"fromAddress,omitempty"`
-	Mainnet        common.Mainnet         `json:"mainnet,omitempty"`
-	Protocol       common.Protocol        `json:"protocol,omitempty"`
-	ExchangeFee    *decimal.Decimal       `json:"exchangeFee,omitempty"`
-	Fee            decimal.Decimal        `json:"fee"`
-	FeeCurrency    common.Currency        `json:"feeCurrency"`
-	Rate           []*common.ExchangeRate `json:"rate,omitempty"`
-	Channel        common.TransferChannel `json:"channel,omitempty"`
-	DisplayRate    *decimal.Decimal       `json:"displayRate"`
-	ExpiredAt      time.Time              `json:"expiredAt"`
-	MainnetName    string                 `json:"mainnetName,omitempty"`
-	Remark         *string                `json:"remark,omitempty"`
+	UserID         uint64          `json:"userId"`
+	ToAmount       decimal.Decimal `json:"toAmount"`
+	ToWalletID     uint64          `json:"toWalletId"`
+	ToCategoryID   uint64          `json:"toCategoryId"`
+	ToCurrency     common.Currency `json:"toCurrency"`
+	ToUserID       uint64          `json:"toUserId,omitempty"`
+	FromAmount     decimal.Decimal `json:"fromAmount"`
+	FromWalletID   uint64          `json:"fromWalletId"`
+	FromCategoryID uint64          `json:"fromCategoryId"`
+	FromCurrency   common.Currency `json:"fromCurrency"`
+	Fee            decimal.Decimal `json:"fee"`
+	FeeCurrency    common.Currency `json:"feeCurrency"`
+	ExpiredAt      time.Time       `json:"expiredAt"`
 }
 
 type PreviewDao struct {

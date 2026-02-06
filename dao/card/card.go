@@ -61,13 +61,19 @@ type CardDao struct {
 	db        infra.Database
 	env       *lib.Env
 	beBuilder *lib.BEBuilder
+	logger    lib.Logger
 }
 
-func NewCardDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *CardDao {
+func NewCardDao(db infra.Database,
+	env *lib.Env,
+	beBuilder *lib.BEBuilder,
+	logger lib.Logger,
+) *CardDao {
 	return &CardDao{
 		db:        db,
 		env:       env,
 		beBuilder: beBuilder,
+		logger:    logger,
 	}
 }
 
@@ -113,7 +119,7 @@ func (ad *CardDao) GetByUserIDCategoryIDForUpdate(ctx context.Context, userID ui
 func (ad *CardDao) GetByUserIDCurrencyType(ctx context.Context, userID uint64, currency common.Currency, t common.AssetType) (*Card, error) {
 
 	if userID == 0 || currency == 0 || t == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ad.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := &Card{}

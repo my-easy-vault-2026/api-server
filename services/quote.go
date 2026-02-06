@@ -28,7 +28,7 @@ func (qs *QuoteService) GetExchangeRates(ctx context.Context, purpose common.Rat
 
 	rate, err := qs.rateGetters.Get(purpose).GetExchangeRate(ctx, quote, base)
 	if err != nil {
-		logger.Warn("get exchange rate failed,", err)
+		qs.logger.Warn("get exchange rate failed,", err)
 		return nil, err
 	}
 

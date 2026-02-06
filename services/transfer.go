@@ -8,541 +8,374 @@ import (
 	systemDao "api-server/dao/system"
 	transferDao "api-server/dao/transfer"
 	userDao "api-server/dao/user"
+	"api-server/infra"
 	"api-server/lib"
 	"context"
 	"encoding/json"
 	"math/rand"
 	"shared-modules/common"
-	"shared-modules/entities"
 	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"time"
 
-	"github.com/jinzhu/copier"
 	"github.com/shopspring/decimal"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
-
-type ITransferConfirm interface {
-	TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, error)
-}
 
 type TransferService struct {
 	transferOrderDao     *orderDao.TransferOrderDao
 	cardDao              *cardDao.CardDao
 	assetDao             *accountDao.AssetDao
 	parameterDao         *systemDao.ParameterDao
-	cryptoCurrencyDao    *coinsdoDao.CryptoCurrencyDao
+	currencyConfigDao    *coinsdoDao.CurrencyConfigDao
 	previewDao           *transferDao.PreviewDao
 	userDao              *userDao.UserDao
 	transactionRecordDao *orderDao.TransactionRecordDao
 	assetTransactionDao  *accountDao.AssetTransactionDao
 	categoryDao          *accountDao.CategoryDao
 	logger               lib.Logger
+	beBuilder            *lib.BEBuilder
+	lockers              infra.Lockers
+	db                   infra.Database
+	env                  *lib.Env
+	quoteService         *QuoteService
 }
 
-var _ ITransferConfirm = (*TransferService)(nil)
-
-func NewTransferService() *TransferService {
+func NewTransferService(transferOrderDao *orderDao.TransferOrderDao,
+	cardDao *cardDao.CardDao,
+	assetDao *accountDao.AssetDao,
+	parameterDao *systemDao.ParameterDao,
+	currencyConfigDao *coinsdoDao.CurrencyConfigDao,
+	previewDao *transferDao.PreviewDao,
+	userDao *userDao.UserDao,
+	transactionRecordDao *orderDao.TransactionRecordDao,
+	assetTransactionDao *accountDao.AssetTransactionDao,
+	categoryDao *accountDao.CategoryDao,
+	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
+	lockers infra.Lockers,
+	db infra.Database,
+	env *lib.Env,
+	quoteService *QuoteService) *TransferService {
 	return &TransferService{
-		transferOrderDao:     orderDao.NewTransferOrderDao(),
-		cardDao:              cardDao.NewCardDao(),
-		assetDao:             accountDao.NewAssetDao(),
-		parameterDao:         systemDao.NewParameterDao(),
-		cryptoCurrencyDao:    coinsdoDao.NewCryptoCurrencyDao(),
-		previewDao:           transferDao.NewPreviewDao(),
-		userDao:              userDao.NewUserDao(),
-		transactionRecordDao: orderDao.NewTransactionRecordDao(),
-		assetTransactionDao:  accountDao.NewAssetTransactionDao(),
-		categoryDao:          accountDao.NewCategoryDao(),
+		transferOrderDao:     transferOrderDao,
+		cardDao:              cardDao,
+		assetDao:             assetDao,
+		parameterDao:         parameterDao,
+		currencyConfigDao:    currencyConfigDao,
+		previewDao:           previewDao,
+		userDao:              userDao,
+		transactionRecordDao: transactionRecordDao,
+		assetTransactionDao:  assetTransactionDao,
+		categoryDao:          categoryDao,
+		logger:               logger,
+		beBuilder:            beBuilder,
+		lockers:              lockers,
+		db:                   db,
+		env:                  env,
+		quoteService:         quoteService,
 	}
 }
 
-func (ts *TransferService) TransferPreview(ctx context.Context, form *entities.TransferPreviewForm, userID uint64) (*transferDao.Preview, string, int, int, decimal.Decimal, error) {
+func (ts *TransferService) TransferPreview(ctx context.Context,
+	fromAmount decimal.Decimal,
+	fromWalletID uint64,
+	toEmail string,
+	toUserID uint64,
+	userID uint64) (oreview *transferDao.Preview, key string, places int, err error) {
 	fromUser, err := ts.userDao.GetByUserID(ctx, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 	if fromUser == nil {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_USER)
-	}
-	if fromUser.Role != common.ROLE_MERCHANT && fromUser.Role != common.ROLE_MERCHANT_USER {
-		if fromUser.BlockReason != nil && *fromUser.BlockReason != common.USER_STATUS_EUSD_REAP_KYC && fromUser.BlockStatus == common.USER_BLOCK_STATUS_BLOCK {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_FROM_USER_BLOCKED)
-		}
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
-	fromCard, err := ts.cardDao.GetByID(ctx, form.FromCardID)
+	fromWallet, err := ts.cardDao.GetByIDUserID(ctx, fromWalletID, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if fromCard == nil {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
-	}
-	if fromCard.UserID != userID {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_NO_PERMISSION)
-	}
-	if fromCard.Status == common.CARD_STATUS_BLOCKED {
-		if func() bool {
-			if fromCard.Type == common.ASSET_TYPE_CRYPTO && fromCard.BlockReason != nil && *fromCard.BlockReason == common.CARD_STATUS_EUSD_REAP_KYC {
-				logger.Warnf("skip block card. id: %v, type: %v, reason: %v", fromCard.ID, fromCard.Type, *fromCard.BlockReason)
-				return false
-			}
-			return true
-		}() {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_FROM_CARD_BLOCKED)
-		}
-	}
-	if fromCard.FreezeStatus == common.CARD_FREEZE_STATUS_FROZEN {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_FROM_CARD_FROZEN)
+	if fromWallet == nil {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
-	// 因為有個需求是eth主幣要帶協議erc-20，實際上主幣是沒有協議的，所以這邊要手動清掉
-	if form.Mainnet == common.MAINNET_ETH.String() && fromCard.Currency == common.CURRENCY_ETH {
-		form.Protocol = ""
-	}
-
-	var toCard *cardDao.Card
-	var fromAddress, fromEmail string
-	var channel common.TransferChannel
-	if form.ToCardID != 0 {
-		toCard, err = ts.cardDao.GetByID(ctx, form.ToCardID)
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if toCard == nil {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
-		}
-		channel = common.TRANSFER_CHANNEL_CARD_ID
-	} else if form.ToUserID != 0 || form.ToEmail != "" {
-		var toUser *userDao.User
-		if form.ToUserID != 0 {
-			toUser, err = ts.userDao.GetByUserID(ctx, form.ToUserID)
-			channel = common.TRANSFER_CHANNEL_USER_ID
-		} else if form.ToEmail != "" {
-			toUser, err = ts.userDao.GetByEmailRole(ctx, form.ToEmail, common.ROLE_USER)
-			fromEmail = fromUser.Email
-			channel = common.TRANSFER_CHANNEL_EMAIL
-		}
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if toUser == nil {
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_USER)
-		}
-
-		toCard, err = ts.cardDao.GetByUserIDCurrencyTypes(ctx, toUser.ID, fromCard.Currency, []common.AssetType{common.ASSET_TYPE_CRYPTO, common.ASSET_TYPE_FIAT})
-		if err != nil {
-			logger.Warn("get failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		if toCard == nil {
-			walletID, err := ts.createWallet(ctx, &entities.CreateWalletForm{
-				CategoryID: uint64(fromCard.Currency),
-				Currency:   fromCard.Currency.String(),
-			}, toUser.ID)
-			if err != nil {
-				logger.Warn("create failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			toCard, err = ts.cardDao.GetByID(ctx, walletID)
-			if err != nil {
-				logger.Warn("get failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-		}
-
+	var toUser *userDao.User
+	if toUserID != 0 {
+		toUser, err = ts.userDao.GetByUserID(ctx, toUserID)
+	} else if toEmail != "" {
+		toUser, err = ts.userDao.GetByEmailRole(ctx, toEmail, common.ROLE_USER)
 	} else {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INVALID_TARGET)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_MISSING_PARAMETER)
 	}
-	if toCard.Status == common.CARD_STATUS_BLOCKED && toCard.Type != common.ASSET_TYPE_CRYPTO {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TO_CARD_BLOCKED)
-	}
-	if toCard.FreezeStatus == common.CARD_FREEZE_STATUS_FROZEN {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TO_CARD_FROZEN)
-	}
-	if fromCard.UserID == toCard.UserID {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_SELF_TRANSFER)
-	}
-
-	toUser, err := ts.userDao.GetByUserID(ctx, toCard.UserID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if toUser.Role == common.ROLE_MERCHANT || toUser.Role == common.ROLE_MERCHANT_USER {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TRANSFER_TO_MERCHANT_CARD)
-	}
-	if toUser.BlockStatus == common.USER_BLOCK_STATUS_BLOCK {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TO_USER_BLOCKED)
+	if toUser == nil {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_USER)
+		return
 	}
 
-	toBuyPrice := decimal.NewFromInt(1)
-	quoteCurrencies := make([]common.Currency, 0, 2)
-	if fromCard.Currency != toCard.Currency {
-		quoteCurrencies = append(quoteCurrencies, toCard.Currency)
+	toWallet, err := ts.cardDao.GetByUserIDCurrencyType(ctx, toUser.ID, fromWallet.Currency, common.ASSET_TYPE_FIAT)
+	if err != nil {
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	rates := make([]*utils.ExchangeRate, 0, 2)
-	if len(quoteCurrencies) > 0 {
-		rates, err = utils.ListExchangeRate(ctx, fromCard.Currency, quoteCurrencies)
+	if toWallet == nil {
+		var walletID uint64
+		walletID, err = ts.createWallet(ctx, fromWallet.Currency, toUser.ID)
 		if err != nil {
-			logger.Warn("get exchange rate failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ts.logger.Warn("create failed,", err)
+			err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return
 		}
-		for _, rate := range rates {
-			if fromCard.Currency != toCard.Currency && rate.QuoteCurrency == toCard.Currency && rate.Purpose == 0 {
-				toBuyPrice = rate.Rate
-				rate.Purpose = common.RATE_PURPOSE_TRANSFER
-				break
-			}
+		toWallet, err = ts.cardDao.GetByID(ctx, walletID)
+		if err != nil {
+			ts.logger.Warn("get failed,", err)
+			err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return
 		}
 	}
 
-	var toAmount, fromAmount decimal.Decimal
-	if form.FromAmount != nil && !form.FromAmount.Equal(decimal.Zero) {
-		fromAmount = form.FromAmount.Copy()
-		toAmount = fromAmount.Div(toBuyPrice)
-	} else if form.ToAmount != nil && !form.ToAmount.Equal(decimal.Zero) {
-		toAmount = form.ToAmount.Copy()
-		fromAmount = toAmount.Mul(toBuyPrice)
-	} else {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+	if fromWallet.UserID == toWallet.UserID {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SELF_TRANSFER)
+		return
 	}
 
-	asset, err := ts.assetDao.GetByIDUserID(ctx, fromCard.ID, userID)
+	asset, err := ts.assetDao.GetByIDUserID(ctx, fromWallet.ID, userID)
 
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
 	if asset == nil || asset.Amount.LessThan(fromAmount) {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INSUFFICIENT_FUND)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_INSUFFICIENT_FUNDS)
+		return
 	}
 
 	params, err := ts.parameterDao.ListByKeys(ctx, []common.ParameterKey{
 		common.PARAMETER_KEY_TRANSFER_TRANSFER_FEE,
-		common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE,
-		common.PARAMETER_KEY_TRANSFER_TRANSFER_EXCHANGE_FEE,
 	})
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if len(params) < 2 {
-		logger.Warnf("no parameter: [%s][%s]", common.PARAMETER_KEY_TRANSFER_TRANSFER_FEE, common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	if len(params) < 1 {
+		ts.logger.Warnf("no parameter: [%s][%s]", common.PARAMETER_KEY_TRANSFER_TRANSFER_FEE, common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	transferFee, exchangeFee := decimal.Zero, (*decimal.Decimal)(nil)
+	transferFee := decimal.Zero
 	for _, param := range params {
 		if param.Key == common.PARAMETER_KEY_TRANSFER_TRANSFER_FEE {
-			v, err := decimal.NewFromString(param.Value)
-			if err != nil {
-				logger.Warn("parse failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			v, err2 := decimal.NewFromString(param.Value)
+			if err2 != nil {
+				ts.logger.Warn("parse failed,", err2)
+				err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+				return
 			}
 			switch param.ValueType {
 			case common.PARAMETER_VALUE_TYPE_AMOUNT:
 				transferFee = v
-				if fromCard.Currency != param.Currency {
-					feeRates, err := utils.ListExchangeRate(ctx, fromCard.Currency, []common.Currency{param.Currency})
-					if err != nil {
-						logger.Warn("get exchange rate failed,", err)
-						return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-					}
-					transferFee = v.Mul(feeRates[0].Rate)
-				}
 			case common.PARAMETER_VALUE_TYPE_PERCENTAGE:
 				transferFee = fromAmount.Mul(v)
 			}
 		}
-		if param.Key == common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE {
-			v, err := decimal.NewFromString(param.Value)
-			if err != nil {
-				logger.Warn("parse failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			switch param.ValueType {
-			case common.PARAMETER_VALUE_TYPE_AMOUNT:
-				exchangeFee = utils.Ptr(v)
-				if fromCard.Currency != param.Currency {
-					feeRates, err := utils.ListExchangeRate(ctx, fromCard.Currency, []common.Currency{param.Currency})
-					if err != nil {
-						logger.Warn("get exchange rate failed,", err)
-						return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-					}
-					exchangeFee = utils.Ptr(v.Mul(feeRates[0].Rate))
-				}
-			case common.PARAMETER_VALUE_TYPE_PERCENTAGE:
-				exchangeFee = utils.Ptr(fromAmount.Mul(v))
-			}
-		}
-	}
-
-	for _, param := range params {
-		if param.Key == common.PARAMETER_KEY_TRANSFER_TRANSFER_EXCHANGE_FEE {
-			if param.SpecialValue == common.SPECIAL_VALUE_NULL {
-				continue
-			}
-			v, err := decimal.NewFromString(param.Value)
-			if err != nil {
-				logger.Warn("parse failed,", err)
-				return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			}
-			switch param.ValueType {
-			case common.PARAMETER_VALUE_TYPE_AMOUNT:
-				exchangeFee = utils.Ptr(v)
-				if fromCard.Currency != param.Currency {
-					feeRates, err := utils.ListExchangeRate(ctx, fromCard.Currency, []common.Currency{param.Currency})
-					if err != nil {
-						logger.Warn("get exchange rate failed,", err)
-						return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-					}
-					exchangeFee = utils.Ptr(v.Mul(feeRates[0].Rate))
-				}
-			case common.PARAMETER_VALUE_TYPE_PERCENTAGE:
-				exchangeFee = utils.Ptr(fromAmount.Mul(v))
-			}
-		}
-	}
-
-	if fromCard.Currency == toCard.Currency {
-		exchangeFee = nil
-	}
-
-	if fromAmount.LessThanOrEqual(transferFee.Add(func() decimal.Decimal {
-		if exchangeFee == nil {
-			return decimal.Zero
-		}
-		return *exchangeFee
-	}())) {
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_TRANSFER_AMOUNT_TOO_LOW)
 	}
 
 	preview := &transferDao.Preview{
 		UserID:         userID,
-		ToCardID:       toCard.ID,
-		ToCategoryID:   toCard.CategoryID,
-		ToCurrency:     toCard.Currency,
-		ToUserID:       toCard.UserID,
-		ToEmail:        form.ToEmail,
-		ToAddress:      form.ToAddress,
+		ToWalletID:     toWallet.ID,
+		ToCategoryID:   toWallet.CategoryID,
+		ToCurrency:     toWallet.Currency,
+		ToUserID:       toWallet.UserID,
 		FromAmount:     fromAmount,
-		FromCardID:     fromCard.ID,
-		FromCategoryID: fromCard.CategoryID,
-		FromCurrency:   fromCard.Currency,
-		FromEmail:      fromEmail,
-		FromAddress:    fromAddress,
-		Mainnet:        common.Mainnet(0).FromString(form.Mainnet),
-		Protocol:       common.Protocol(0).FromString(form.Protocol),
-		ExchangeFee:    exchangeFee,
+		FromWalletID:   fromWallet.ID,
+		FromCategoryID: fromWallet.CategoryID,
+		FromCurrency:   fromWallet.Currency,
 		Fee:            transferFee,
-		Rate:           make([]*common.ExchangeRate, 0, 10),
-		Channel:        channel,
-		ExpiredAt:      time.Now().Add(utils.Config.TopUp.PreviewExpireSeconds * time.Second),
-		Remark:         form.Remark,
+		ExpiredAt:      time.Now().Add(ts.env.PreviewExpiryTime * time.Second),
 	}
 
-	for _, rate := range rates {
-		previewRate := &common.ExchangeRate{}
-		if err := copier.Copy(previewRate, rate); err != nil {
-			logger.Warn("copy failed,", err)
-			return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-		}
-		preview.Rate = append(preview.Rate, previewRate)
-	}
+	preview.ToAmount = fromAmount.Sub(preview.Fee)
 
-	preview.ToAmount = fromAmount.Sub(preview.Fee).Sub(func() decimal.Decimal {
-		if exchangeFee == nil {
-			return decimal.Zero
-		}
-		return *exchangeFee
-	}()).Div(toBuyPrice)
-
-	cryptos, err := ts.cryptoCurrencyDao.ListByCurrencies(ctx, []common.Currency{
-		fromCard.Currency,
-		toCard.Currency,
-	})
+	configs, err := ts.currencyConfigDao.ListByCurrencies(ctx, []common.Currency{fromWallet.Currency})
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	var fromPlaces, toPlaces int
-	var mainnetName string
-	for _, crypto := range cryptos {
-		if crypto.CurrencyType == fromCard.Currency {
-			fromPlaces = crypto.DisplayDecimals
-		}
-		if crypto.CurrencyType != toCard.Currency {
-			continue
-		}
-		if form.Mainnet == "" {
-			toPlaces = crypto.DisplayDecimals
-		} else if crypto.Mainnet == common.Mainnet(0).FromString(form.Mainnet) {
-			toPlaces = crypto.DisplayDecimals
-			mainnetName = crypto.MainnetFullName
-		}
+	if len(configs) == 0 {
+		ts.logger.Warnf("no currency config: [%s]", fromWallet.Currency)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	preview.MainnetName = mainnetName
-	preview.FromAmount = preview.FromAmount.Round(int32(fromPlaces))
-	preview.Fee = preview.Fee.Round(int32(fromPlaces))
-	inverseRate := preview.ToAmount.Round(int32(toPlaces)).Div(preview.FromAmount.Sub(preview.Fee)).Round(int32(utils.Config.System.RatePrecision))
-	preview.DisplayRate = &inverseRate
-	preview.ToAmount = preview.FromAmount.Sub(preview.Fee).Mul(inverseRate).Round(int32(toPlaces))
-	preview.ExchangeFee = func() *decimal.Decimal {
-		if exchangeFee == nil {
-			return nil
-		}
-		f := preview.ExchangeFee.RoundFloor(int32(fromPlaces))
-		return &f
-	}()
+	places = configs[0].Decimals
+
+	preview.FromAmount = preview.FromAmount.Round(int32(places))
+	preview.Fee = preview.Fee.Round(int32(places))
+	preview.ToAmount = preview.FromAmount.Sub(preview.Fee).Round(int32(places))
 
 	data, err := json.Marshal(preview)
 	if err != nil {
-		logger.Warn("marshal failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("marshal failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	key := utils.Md5String(string(data) + time.Now().String())
+	key = utils.Md5String(string(data) + time.Now().String())
 
-	if err := ts.previewDao.Save(ctx, key, preview, utils.Config.Transfer.PreviewExpireSeconds*time.Second); err != nil {
-		logger.Warn("save failed,", err)
-		return nil, "", 0, 0, decimal.Decimal{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	if err = ts.previewDao.Save(ctx, key, preview, ts.env.PreviewExpiryTime*time.Second); err != nil {
+		ts.logger.Warn("save failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	return preview, key, fromPlaces, toPlaces, inverseRate, nil
+	return
 }
 
-func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.TransferConfirmForm, userID uint64) (*string, error) {
-	locker := utils.NewLocker()
-	if err := locker.WaitLock(
+func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinCode string, userID uint64) (orderNO string, err error) {
+	locker := ts.lockers.NewLocker()
+	if err = locker.WaitLock(
 		ctx,
-		utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, form.TransferKey),
-		utils.Config.Transfer.PreviewExpireSeconds*time.Second,
-		utils.Config.System.LockWaitMicroseconds*time.Microsecond,
+		utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, key),
+		ts.env.PreviewExpiryTime*time.Second,
+		ts.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
-		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, form.TransferKey), err)
-		return nil, err
+		ts.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, key), err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
-			logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, form.TransferKey), err)
+			ts.logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, key), err)
 		}
 	}()
 
 	user, err := ts.userDao.GetByUserID(ctx, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	if utils.CheckBcryptHash(form.PinCode, user.Salt, user.PinCode) {
-		return nil, utils.NewBusinessError(ctx, common.CODE_USER_PIN_CODE_CONFIRMATION_FAILED)
-	}
-
-	preview, err := ts.previewDao.Get(ctx, form.TransferKey)
+	saltedPassword := pinCode + user.Salt
+	err = bcrypt.CompareHashAndPassword([]byte(user.PinCode), []byte(saltedPassword))
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Infof("invalid pin code for user: %d", userID)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_INVALED_PIN_CODE)
+		return
+	}
+
+	preview, err := ts.previewDao.Get(ctx, key)
+	if err != nil {
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
 	if preview == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_TRANSFER_EXPIRED)
-	}
-
-	if preview.Channel == common.TRANSFER_CHANNEL_WITHDRAW {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_CHANGE_TO_WITHDRAW)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_PREVIEW_EXPIRED)
+		return
 	}
 
 	defer func() {
-		if err := ts.previewDao.Remove(ctx, form.TransferKey); err != nil {
-			logger.Warn("delete failed,", err)
+		if err := ts.previewDao.Remove(ctx, key); err != nil {
+			ts.logger.Warn("delete failed,", err)
 		}
 	}()
 
-	if fromAsset, err := ts.assetDao.GetByIDUserID(ctx, preview.FromCardID, userID); err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+	if fromAsset, err2 := ts.assetDao.GetByIDUserID(ctx, preview.FromWalletID, userID); err2 != nil {
+		ts.logger.Warn("get failed,", err2)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	} else if fromAsset == nil {
-		logger.Warn("no card asset, ID: %d", preview.FromCardID)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("no card asset, ID: %d", preview.FromWalletID)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	} else if fromAsset.Amount.LessThan(preview.FromAmount) {
-		// TODO: transfer failed
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INSUFFICIENT_FUND)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_INSUFFICIENT_FUNDS)
+		return
 	}
 
-	fromCard, err := ts.cardDao.GetByID(ctx, preview.FromCardID)
+	fromWallet, err := ts.cardDao.GetByID(ctx, preview.FromWalletID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if fromCard == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+	if fromWallet == nil {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
-	toCard, err := ts.cardDao.GetByID(ctx, preview.ToCardID)
+	toWallet, err := ts.cardDao.GetByID(ctx, preview.ToWalletID)
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		ts.logger.Warn("get failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
-	if toCard == nil {
-		return nil, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CARD)
+	if toWallet == nil {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
+		return
 	}
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	orderNO := "TRF_" + strconv.FormatUint(preview.FromCardID, 10) + "_" + strconv.FormatUint(preview.ToCardID, 10) +
+	orderNO = "TRF_" + strconv.FormatUint(preview.FromWalletID, 10) + "_" + strconv.FormatUint(preview.ToWalletID, 10) +
 		"_" + strconv.FormatInt(time.Now().Unix(), 10) + strconv.Itoa(int(rnd.Int31n(10000)))
 
-	logger.Infof("start transfering, card ID: [%d] -> [%d], order NO: [%s]", preview.FromCardID, preview.ToCardID, orderNO)
+	logger.Infof("start transfering, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	var tErr error
-	err = utils.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
+	err = utils.WithTX(ts.db.DB, func(tx *gorm.DB) error {
 		var ctx = context.WithValue(ctx, "db", tx)
+		transferOrderDaoTX := ts.transferOrderDao.WithTx(ts.db.DB)
+		transactionRecordDaoTX := ts.transactionRecordDao.WithTx(ts.db.DB)
+		assetTransactionDaoTX := ts.assetTransactionDao.WithTx(ts.db.DB)
 
 		order := &orderDao.TransferOrder{
 			OrderNO:        orderNO,
 			UserID:         userID,
 			ToAmount:       preview.ToAmount,
 			ToUserID:       preview.ToUserID,
-			ToCardID:       preview.ToCardID,
+			ToWalletID:     preview.ToWalletID,
 			ToCategoryID:   preview.ToCategoryID,
 			ToCurrency:     preview.ToCurrency,
-			ToEmail:        preview.ToEmail,
-			ToAddress:      preview.ToAddress,
 			FromAmount:     preview.FromAmount,
-			FromCardID:     preview.FromCardID,
+			FromWalletID:   preview.FromWalletID,
 			FromCategoryID: preview.FromCategoryID,
 			FromCurrency:   preview.FromCurrency,
-			FromEmail:      preview.FromEmail,
-			FromAddress:    preview.FromAddress,
-			Mainnet:        preview.Mainnet,
-			Protocol:       preview.Protocol,
-			ExchangeFee:    preview.ExchangeFee,
-			TransferFee:    preview.Fee,
-			Channel:        preview.Channel,
+			Fee:            preview.Fee,
+			FeeCurrency:    preview.FeeCurrency,
 			Status:         common.TRANSFER_STATUS_SUCCESS,
 		}
 
-		for _, rate := range preview.Rate {
-			if rate.BaseCurrency == preview.FromCurrency &&
-				rate.QuoteCurrency == preview.ToCurrency {
-				order.ExchangeRate = &rate.Rate
-				break
-			}
-		}
-
-		_, tErr = ts.transferOrderDao.Save(ctx, order)
+		var id uint64
+		id, tErr = transferOrderDaoTX.Save(ctx, order)
 		if tErr != nil {
-			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ts.logger.Warn("save failed,", tErr)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			return tErr
+		}
+		if id == 0 {
+			ts.logger.Warn("save failed,", tErr)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_DB_INSERT_FAILED)
 			return tErr
 		}
 
@@ -552,7 +385,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 				Type:                    common.TRANSACTION_RECORD_TYPE_TRANSFER,
 				TransactionNO:           orderNO,
 				UserID:                  userID,
-				CardID:                  preview.FromCardID,
+				WalletID:                preview.FromWalletID,
 				Income:                  decimal.NewNullDecimal(preview.FromAmount.Neg()),
 				IncomeCategoryID:        preview.FromCategoryID,
 				IncomeCurrency:          preview.FromCurrency,
@@ -561,152 +394,73 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 				AgainstIncomeCurrency:   preview.ToCurrency,
 				Side:                    common.TRANSACTION_SIDE_FROM,
 				FromUserID:              preview.UserID,
-				FromCardID:              preview.FromCardID,
+				FromWalletID:            preview.FromWalletID,
 				FromCategoryID:          preview.FromCategoryID,
 				FromCurrency:            preview.FromCurrency,
 				FromAmount:              decimal.NewNullDecimal(preview.FromAmount),
-				FromEmail:               preview.FromEmail,
-				FromAddress:             preview.FromAddress,
-				FromAlias:               fromCard.Alias,
-				FromPANNumber:           fromCard.PANNumber,
 				ToUserID:                preview.ToUserID,
-				ToCardID:                preview.ToCardID,
+				ToWalletID:              preview.ToWalletID,
 				ToCategoryID:            preview.ToCategoryID,
 				ToCurrency:              preview.ToCurrency,
 				ToAmount:                decimal.NewNullDecimal(preview.ToAmount),
-				ToEmail:                 preview.ToEmail,
-				ToAddress:               preview.ToAddress,
-				ToAlias:                 toCard.Alias,
-				ToPANNumber:             toCard.PANNumber,
-				Mainnet:                 preview.Mainnet,
-				Protocol:                preview.Protocol,
-				TransferChannel:         preview.Channel,
-				DisplayRate:             preview.DisplayRate,
-				ExchangeFee:             preview.ExchangeFee,
-				ExchangeFeeCurrency:     preview.FromCurrency,
 				TransferFee:             &preview.Fee,
 				TransferFeeCurrency:     preview.FromCurrency,
-				ExecutorRole:            common.ROLE_USER,
 				Status:                  common.TRANSACTION_STATUS_TRANSFER_SUCCESS,
-				Remark:                  preview.Remark,
 			},
 			{
 				Type:                    common.TRANSACTION_RECORD_TYPE_TRANSFER,
 				TransactionNO:           orderNO,
 				UserID:                  preview.ToUserID,
-				CardID:                  preview.ToCardID,
+				WalletID:                preview.ToWalletID,
 				Income:                  decimal.NewNullDecimal(preview.ToAmount),
 				IncomeCategoryID:        preview.ToCategoryID,
 				IncomeCurrency:          preview.ToCurrency,
 				AgainstIncome:           decimal.NewNullDecimal(preview.FromAmount.Neg()),
 				AgainstIncomeCategoryID: preview.FromCategoryID,
 				AgainstIncomeCurrency:   preview.FromCurrency,
-				Side:                    common.TRANSACTION_SIDE_TO,
+				Side:                    common.TRANSACTION_SIDE_FROM,
 				FromUserID:              preview.UserID,
-				FromCardID:              preview.FromCardID,
+				FromWalletID:            preview.FromWalletID,
 				FromCategoryID:          preview.FromCategoryID,
 				FromCurrency:            preview.FromCurrency,
 				FromAmount:              decimal.NewNullDecimal(preview.FromAmount),
-				FromEmail:               preview.FromEmail,
-				FromAddress:             preview.FromAddress,
 				ToUserID:                preview.ToUserID,
-				ToCardID:                preview.ToCardID,
+				ToWalletID:              preview.ToWalletID,
 				ToCategoryID:            preview.ToCategoryID,
 				ToCurrency:              preview.ToCurrency,
 				ToAmount:                decimal.NewNullDecimal(preview.ToAmount),
-				ToEmail:                 preview.ToEmail,
-				ToAddress:               preview.ToAddress,
-				Mainnet:                 preview.Mainnet,
-				Protocol:                preview.Protocol,
-				TransferChannel:         preview.Channel,
-				DisplayRate:             preview.DisplayRate,
-				ExchangeFee:             preview.ExchangeFee,
-				ExchangeFeeCurrency:     preview.FromCurrency,
 				TransferFee:             &preview.Fee,
 				TransferFeeCurrency:     preview.FromCurrency,
-				ExecutorRole:            common.ROLE_USER,
 				Status:                  common.TRANSACTION_STATUS_TRANSFER_SUCCESS,
-				Remark:                  preview.Remark,
 			},
 		})
 		if tErr != nil {
-			logger.Warn("saves failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			ts.logger.Warn("saves failed,", tErr)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 		if rowsAffected != 2 {
-			logger.Warnf("duplicated save: [%+v]", preview)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-
-		var card *cardDao.Card
-		card, tErr = ts.cardDao.GetsByFreezeStatusIDForShare(ctx, common.CARD_FREEZE_STATUS_UNFROZEN, order.FromCardID)
-		if tErr != nil {
-			logger.Warn("get failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-		if card == nil {
-			tErr = utils.NewBusinessError(ctx, common.CODE_TRANSFER_FROM_CARD_FROZEN)
-			return tErr
-		}
-
-		card, tErr = ts.cardDao.GetsByFreezeStatusIDForShare(ctx, common.CARD_FREEZE_STATUS_UNFROZEN, order.ToCardID)
-		if tErr != nil {
-			logger.Warn("get failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-			return tErr
-		}
-		if card == nil {
-			tErr = utils.NewBusinessError(ctx, common.CODE_TRANSFER_FROM_CARD_FROZEN)
+			ts.logger.Warnf("duplicated save: [%#v]", preview)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 
 		transactions := []*accountDao.AssetTransaction{
-			// 平台帳戶加幣
-			{
-				UserID:   common.SYSTEM_ACCOUNT_PLATFORM,
-				OrderNO:  orderNO,
-				Currency: preview.FromCurrency,
-				Amount: preview.FromAmount.Sub(preview.Fee).Sub(func() decimal.Decimal {
-					if preview.ExchangeFee == nil {
-						return decimal.Zero
-					}
-					return *preview.ExchangeFee
-				}()),
-				TransactionType: common.TRANSACTION_TYPE_ASSET_ADD,
-				BillType:        common.BILL_TYPE_TRANSFER_SEND_ADD,
-			},
-			// 手續費帳戶加手續費
-			{
-				UserID:          common.SYSTEM_ACCOUNT_FEE,
-				OrderNO:         orderNO,
-				Currency:        preview.FromCurrency,
-				Amount:          preview.Fee,
-				TransactionType: common.TRANSACTION_TYPE_ASSET_ADD,
-				BillType:        common.BILL_TYPE_TRANSFER_SEND_FEE_ADD,
-			},
 			// 用戶扣幣
 			{
-				UserID:     userID,
-				CardID:     preview.FromCardID,
-				OrderNO:    orderNO,
-				CategoryID: preview.FromCategoryID,
-				Currency:   preview.FromCurrency,
-				Amount: preview.FromAmount.Sub(preview.Fee).Sub(func() decimal.Decimal {
-					if preview.ExchangeFee == nil {
-						return decimal.Zero
-					}
-					return *preview.ExchangeFee
-				}()),
+				UserID:          userID,
+				WalletID:        preview.FromWalletID,
+				OrderNO:         orderNO,
+				CategoryID:      preview.FromCategoryID,
+				Currency:        preview.FromCurrency,
+				Amount:          preview.FromAmount.Sub(preview.Fee),
 				TransactionType: common.TRANSACTION_TYPE_ASSET_DEDUCT,
 				BillType:        common.BILL_TYPE_TRANSFER_SEND_DEDUCT,
 			},
 			// 用戶扣手續費
 			{
 				UserID:          userID,
-				CardID:          preview.FromCardID,
+				WalletID:        preview.FromWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.FromCategoryID,
 				Currency:        preview.FromCurrency,
@@ -717,7 +471,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 			// 用戶加幣
 			{
 				UserID:          preview.ToUserID,
-				CardID:          preview.ToCardID,
+				WalletID:        preview.ToWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.ToCategoryID,
 				Currency:        preview.ToCurrency,
@@ -725,108 +479,55 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, form *entities.T
 				TransactionType: common.TRANSACTION_TYPE_ASSET_ADD,
 				BillType:        common.BILL_TYPE_TRANSFER_RECEIVE_ADD,
 			},
-			// 平台扣幣
-			{
-				UserID:          common.SYSTEM_ACCOUNT_PLATFORM,
-				OrderNO:         orderNO,
-				Currency:        preview.ToCurrency,
-				Amount:          preview.ToAmount,
-				TransactionType: common.TRANSACTION_TYPE_ASSET_DEDUCT,
-				BillType:        common.BILL_TYPE_TRANSFER_RECEIVE_DEDUCT,
-			},
 		}
 
-		if preview.ExchangeFee != nil {
-			// 手續費帳戶加 匯差費
-			systemTransaction := &accountDao.AssetTransaction{
-				UserID:          common.SYSTEM_ACCOUNT_FEE,
-				OrderNO:         orderNO,
-				Currency:        preview.FromCurrency,
-				Amount:          *preview.ExchangeFee,
-				TransactionType: common.TRANSACTION_TYPE_ASSET_ADD,
-				BillType:        common.BILL_TYPE_TRANSFER_SEND_EXCHANGE_FEE_ADD,
-			}
-			transactions = append(transactions, systemTransaction)
-			// 用戶扣 匯差費
-			userTransaction := &accountDao.AssetTransaction{
-				UserID:          userID,
-				CardID:          preview.FromCardID,
-				OrderNO:         orderNO,
-				CategoryID:      preview.FromCategoryID,
-				Currency:        preview.FromCurrency,
-				Amount:          *preview.ExchangeFee,
-				TransactionType: common.TRANSACTION_TYPE_ASSET_DEDUCT,
-				BillType:        common.BILL_TYPE_TRANSFER_SEND_EXCHANGE_FEE_DEDUCT,
-			}
-			transactions = append(transactions, userTransaction)
-		}
-
-		tErr = ts.assetTransactionDao.BatchTransaction(ctx, transactions, common.TRANSACTION_RECORD_TYPE_TRANSFER, false)
+		tErr = assetTransactionDaoTX.BatchTransaction(ctx, transactions, common.TRANSACTION_RECORD_TYPE_TRANSFER, false)
 		if tErr != nil {
-			logger.Warn("transaction failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_TRANSACTION_FAILED)
+			ts.logger.Warn("transaction failed,", tErr)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_ASSET_TRANSACTION_FAILED)
 			return tErr
 		}
 		return nil
 	})
 
 	if tErr != nil {
-		logger.Warn("transaction failed,", tErr)
-		return nil, tErr
+		ts.logger.Warn("transaction failed,", tErr)
+		err = tErr
+		return
 	}
 
 	if err != nil {
-		logger.Warn("transaction failed,", err)
-		return nil, err
+		ts.logger.Warn("transaction failed,", err)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_TRANSACTION_FAILED)
+		return
 	}
 
-	logger.Infof("transfered, card ID: [%d] -> [%d], order NO: [%s]", preview.FromCardID, preview.ToCardID, orderNO)
+	logger.Infof("transfered, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
-	if fromCard.Type != common.ASSET_TYPE_CARD_PRODUCT {
-		return &orderNO, nil
-	}
-
-	return &orderNO, nil
+	return
 }
 
-func (ts *TransferService) createWallet(ctx context.Context, form *entities.CreateWalletForm, userID uint64) (uint64, error) {
+func (ts *TransferService) createWallet(ctx context.Context, currency common.Currency, userID uint64) (walletID uint64, err error) {
 
-	categoryID := uint64(0)
-	currency := common.Currency(0)
-	if form.CategoryID != 0 {
-		currency = common.Currency(form.CategoryID)
-		categoryID = uint64(form.CategoryID)
-		if !currency.IsValid() {
-			return 0, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CATEGORY)
-		}
-	} else if form.Currency != "" {
-		currency = common.Currency(0).FromString(form.Currency)
-		categoryID = uint64(currency)
-		if !currency.IsValid() {
-			return 0, utils.NewBusinessError(ctx, common.CODE_TRANSFER_NO_SUCH_CURRENCY)
-		}
-	}
-
-	// 法幣、e卡不自動開卡
-	if categoryID >= 200 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INVALID_CATEGORY)
+	categoryID := uint64(currency)
+	if !currency.IsValid() {
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_EXCHANGE_NO_SUCH_CATEGORY)
+		return
 	}
 
 	category, err := ts.categoryDao.GetByID(ctx, categoryID)
 	if err != nil {
 		logger.Warn("get failed", err)
-		return 0, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-	if category.Usage&common.CATEGORY_USAGE_USER_APPLY == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_TRANSFER_INVALID_CATEGORY)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return
 	}
 
-	locker := utils.NewLocker()
+	locker := ts.lockers.NewLocker()
 	if err := locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)),
-		utils.Config.System.LockMicroseconds*time.Microsecond,
-		utils.Config.System.LockWaitMicroseconds*time.Microsecond,
+		ts.env.LockDuration*time.Microsecond,
+		ts.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
 		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err
@@ -840,14 +541,14 @@ func (ts *TransferService) createWallet(ctx context.Context, form *entities.Crea
 	var id uint64
 
 	var tErr error
-	err = utils.GetDB(ctx).Transaction(func(tx *gorm.DB) error {
-		var ctx = context.WithValue(ctx, "db", tx)
-
+	err = utils.WithTX(ts.db.DB, func(tx *gorm.DB) error {
+		cardDaoTX := ts.cardDao.WithTx(ts.db.DB)
+		assetDaoTX := ts.assetDao.WithTx(ts.db.DB)
 		var wallet *cardDao.Card
-		wallet, tErr = ts.cardDao.GetByUserIDCategoryIDForUpdate(ctx, userID, uint64(currency))
+		wallet, tErr = cardDaoTX.GetByUserIDCategoryIDForUpdate(ctx, userID, uint64(currency))
 		if tErr != nil {
 			logger.Warn("get failed", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 		if wallet != nil {
@@ -855,25 +556,24 @@ func (ts *TransferService) createWallet(ctx context.Context, form *entities.Crea
 			return nil
 		}
 
-		id, tErr = ts.cardDao.Save(ctx, &cardDao.Card{
-			UserID:        userID,
-			Type:          common.AssetType(currency.Type()),
-			ProductName:   currency.String(),
-			CategoryID:    categoryID,
-			Currency:      currency,
-			CurrencyType:  currency.Type(),
-			FromAutoTopUp: common.AUTO_TOP_UP_STATUS_ENABLED,
-			ToAutoTopUp:   common.AUTO_TOP_UP_STATUS_DISABLED,
-			Status:        common.CARD_STATUS_ACTIVATED,
-			FreezeStatus:  common.CARD_FREEZE_STATUS_UNFROZEN,
+		id, tErr = cardDaoTX.Save(ctx, &cardDao.Card{
+			UserID:       userID,
+			Name:         category.Name,
+			Type:         common.AssetType(currency.Type()),
+			CategoryID:   categoryID,
+			Currency:     currency,
+			CurrencyType: currency.Type(),
+			Nation:       category.Nation,
+			NationCode:   category.NationCode,
+			Status:       common.CARD_STATUS_ACTIVATED,
 		})
 		if tErr != nil {
 			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 
-		if _, tErr = ts.assetDao.Save(ctx, &accountDao.Asset{
+		if _, tErr = assetDaoTX.Save(ctx, &accountDao.Asset{
 			ID:           id,
 			UserID:       userID,
 			Type:         currency.AssetType(),
@@ -882,7 +582,7 @@ func (ts *TransferService) createWallet(ctx context.Context, form *entities.Crea
 			CurrencyType: currency.Type(),
 		}); tErr != nil {
 			logger.Warn("save failed,", tErr)
-			tErr = utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
 
@@ -895,43 +595,8 @@ func (ts *TransferService) createWallet(ctx context.Context, form *entities.Crea
 
 	if err != nil {
 		logger.Warn("transaction failed,", err)
-		return 0, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		return 0, ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	return id, nil
-}
-
-func (ts *TransferService) GetCategory(ctx context.Context, form *entities.TransferConfirmForm) (fromCategory *accountDao.Category, toCategory *accountDao.Category, err error) {
-	preview, err := ts.previewDao.Get(ctx, form.TransferKey)
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return
-	}
-
-	if preview == nil {
-		err = utils.NewBusinessError(ctx, common.CODE_CARD_APPLY_EXPIRED)
-		return
-	}
-
-	fromCategory, err = ts.categoryDao.GetByID(ctx, preview.FromCategoryID)
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return
-	}
-	if fromCategory == nil {
-		err = utils.NewBusinessError(ctx, common.CODE_CARD_NO_SUCH_ASSET_CATEGORY)
-		return
-	}
-
-	toCategory, err = ts.categoryDao.GetByID(ctx, preview.ToCategoryID)
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return
-	}
-	if toCategory == nil {
-		err = utils.NewBusinessError(ctx, common.CODE_CARD_NO_SUCH_ASSET_CATEGORY)
-		return
-	}
-
-	return
 }

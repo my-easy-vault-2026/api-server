@@ -8,7 +8,6 @@ import (
 	"errors"
 	"net/http"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"strings"
@@ -23,22 +22,31 @@ type WebsocketHandler struct {
 	logger           lib.Logger
 	redis            infra.Redis
 	wsServer         infra.WsServer
+	beBuilder        *lib.BEBuilder
+	httpRes          *lib.HttpRes
 }
 
-func NewWebsocketHandler(websockerService *services.WebsocketService, logger lib.Logger, redis infra.Redis) *WebsocketHandler {
+func NewWebsocketHandler(websockerService *services.WebsocketService,
+	logger lib.Logger,
+	redis infra.Redis,
+	wsServer infra.WsServer,
+	beBuilder *lib.BEBuilder,
+	httpRes *lib.HttpRes,
+) *WebsocketHandler {
 	return &WebsocketHandler{
 		websocketService: websockerService,
 		logger:           logger,
 		redis:            redis,
+		wsServer:         wsServer,
+		beBuilder:        beBuilder,
+		httpRes:          httpRes,
 	}
 }
 
-// @Summary		Get all wallets
-// @Description	Get all wallets of the user
 // @Tags			web/websocket
 // @Param			X-Token			header	string						true	"User token"
 // @Param			Accept-Language	header	string						false	"accept language"
-// @Router			/web/websocket/connect [get]
+// @Router			/web/websocket/connect/*token [get]
 func (wh *WebsocketHandler) Connect(c *gin.Context) {
 
 	token := c.Param("token")
@@ -47,26 +55,26 @@ func (wh *WebsocketHandler) Connect(c *gin.Context) {
 
 	ret := wh.redis.Get(c, wsKey)
 	if errors.Is(redis.Nil, ret.Err()) {
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_NOT_LOGIN))
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 	if ret.Err() != nil {
-		logger.Warn("get failed", ret.Err())
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		wh.logger.Warn("get failed", ret.Err())
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
 	userIDStr := ret.Val()
 	if userIDStr == "" {
-		logger.Error("no X-Uid")
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		wh.logger.Error("no X-Uid")
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
 	userID, err := strconv.ParseUint(userIDStr, 10, 64)
 	if err != nil {
-		logger.Error("X-Uid parse failed,", err)
-		utils.ReError(c, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
+		wh.logger.Error("X-Uid parse failed,", err)
+		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
 		return
 	}
 
@@ -80,7 +88,7 @@ func (wh *WebsocketHandler) Connect(c *gin.Context) {
 	conn, err := upGrader.Upgrade(c.Writer, c.Request, nil)
 
 	if err != nil {
-		logger.Errorf("serverWs err:%s", err.Error())
+		wh.logger.Errorf("serverWs err:%s", err.Error())
 		conn.Close()
 		return
 	}

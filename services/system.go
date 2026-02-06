@@ -2,6 +2,7 @@ package services
 
 import (
 	systemDao "api-server/dao/system"
+	"api-server/lib"
 	"context"
 	"shared-modules/common"
 	"shared-modules/entities"
@@ -12,20 +13,20 @@ import (
 )
 
 type SystemService struct {
-	parameterDao         *systemDao.ParameterDao
-	structuredContentDao *systemDao.StructuredContentDao
-	logger               logger.Logger
+	parameterDao *systemDao.ParameterDao
+	logger       logger.Logger
+	beBuilder    *lib.BEBuilder
 }
 
 func NewSystemService(
 	parameterDao *systemDao.ParameterDao,
-	structuredContentDao *systemDao.StructuredContentDao,
 	logger logger.Logger,
+	beBuilder *lib.BEBuilder,
 ) *SystemService {
 	return &SystemService{
-		parameterDao:         parameterDao,
-		structuredContentDao: structuredContentDao,
-		logger:               logger,
+		parameterDao: parameterDao,
+		logger:       logger,
+		beBuilder:    beBuilder,
 	}
 }
 
@@ -34,13 +35,12 @@ func (ss *SystemService) ListSystemParameters(c *gin.Context, form *entities.Lis
 
 	parameters, err := ss.parameterDao.Gets(c, &systemDao.ParameterQuery{
 		Parameter: systemDao.Parameter{
-			Key:        form.Key,
-			CategoryID: form.CategoryID,
+			Key: form.Key,
 		},
 	})
 	if err != nil {
-		logger.Warn("get error,", err)
-		return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+		ss.logger.Warn("get error,", err)
+		return nil, ss.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 	}
 
 	return parameters, nil

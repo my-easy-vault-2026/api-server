@@ -49,7 +49,7 @@ type BillQuery struct {
 	OrderDirection common.OrderDirection
 	CreatedAtFrom  time.Time
 	CreatedAtTo    time.Time
-	utils.Page
+	common.Page
 }
 
 type BillDao struct {

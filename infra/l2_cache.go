@@ -2,7 +2,6 @@ package infra
 
 import (
 	"fmt"
-	"shared-modules/common"
 	"shared-modules/utils"
 
 	"context"
@@ -16,8 +15,14 @@ import (
 	"gorm.io/gorm"
 )
 
+type L2CacheLevel int // 二級緩存等級
+const (
+	L2_CACHE_LEVEL_MEMORY L2CacheLevel = 1
+	L2_CACHE_LEVEL_REDIS  L2CacheLevel = 2
+)
+
 type L2CacheConfig struct {
-	Level         []common.L2CacheLevel
+	Level         []L2CacheLevel
 	ExpireSeconds time.Duration
 }
 

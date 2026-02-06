@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"api-server/handlers/test"
-	"api-server/handlers/web"
+	"api-server/api/handlers/test"
+	"api-server/api/handlers/web"
 
 	"go.uber.org/fx"
 )

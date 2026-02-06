@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"shared-modules/common"
 	"shared-modules/entities"
-	"shared-modules/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -165,8 +164,8 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 	}
 
 	if len(assets) != len(cardIDs) {
-		logger.Error("asset wallet mismatch")
-		wh.httpRes.ReError(c, http.StatusInternalServerError, wh.beBuilder.NewBusinessError(c, common.CODE_CARD_WALLET_ASSET_MISMATCH))
+		wh.logger.Error("asset wallet mismatch")
+		wh.httpRes.ReError(c, http.StatusInternalServerError, wh.beBuilder.NewBusinessError(c, common.CODE_MALFORMED_DATA))
 		return
 	}
 

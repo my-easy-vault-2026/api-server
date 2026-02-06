@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"shared-modules/common"
 	"shared-modules/entities"
-	"shared-modules/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -81,7 +80,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 	}
 
 	if user == nil {
-		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_USER_NO_SUCH_USER))
+		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_NO_SUCH_USER))
 		return
 	}
 
@@ -122,7 +121,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		recordsCopy[i] = &entities.TransactionRecordVO{}
 		err := copier.Copy(recordsCopy[i], v)
 		if err != nil {
-			logger.Warnf("copy [%v] error, %v", v, err)
+			oh.logger.Warnf("copy [%v] error, %v", v, err)
 			oh.httpRes.ReError(c, http.StatusInternalServerError, err)
 			return
 		}

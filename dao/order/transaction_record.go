@@ -55,14 +55,12 @@ type TransactionRecord struct {
 	FromAmount              decimal.NullDecimal    `gorm:"default:null"`
 	FromDiscount            decimal.NullDecimal    `gorm:"default:null"`
 	FromUserID              uint64                 `gorm:"default:null"`
-	FromEmail               string                 `gorm:"default:null"`
 	ToType                  common.AssetType       `gorm:"default:null"`
 	ToWalletID              uint64                 `gorm:"default:null"`
 	ToCategoryID            uint64                 `gorm:"default:null"`
 	ToCurrency              common.Currency        `gorm:"default:null"`
 	ToAmount                decimal.NullDecimal    `gorm:"default:null"`
 	ToUserID                uint64                 `gorm:"default:null"`
-	ToEmail                 string                 `gorm:"default:null"`
 	ExchangeRate            *decimal.Decimal       `gorm:"default:null"`
 	ExchangeFee             *decimal.Decimal       `gorm:"default:null"`
 	ExchangeFeeCurrency     common.Currency        `gorm:"default:null"`

@@ -15,7 +15,7 @@ import (
 type AssetTransaction struct {
 	UserID          uint64
 	OrderNO         string
-	CardID          uint64
+	WalletID        uint64
 	CategoryID      uint64
 	Currency        common.Currency
 	Amount          decimal.Decimal

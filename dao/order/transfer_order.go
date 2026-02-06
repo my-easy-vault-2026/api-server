@@ -25,23 +25,15 @@ type TransferOrder struct {
 	UserID         uint64
 	ToAmount       decimal.Decimal
 	ToUserID       uint64
-	ToCardID       uint64
+	ToWalletID     uint64
 	ToCategoryID   uint64
 	ToCurrency     common.Currency
-	ToEmail        string `gorm:"default:null"`
-	ToAddress      string `gorm:"default:null"`
 	FromAmount     decimal.Decimal
-	FromCardID     uint64
+	FromWalletID   uint64
 	FromCategoryID uint64
 	FromCurrency   common.Currency
-	FromEmail      string           `gorm:"default:null"`
-	FromAddress    string           `gorm:"default:null"`
-	Mainnet        common.Mainnet   `gorm:"default:null"`
-	Protocol       common.Protocol  `gorm:"default:null"`
-	ExchangeRate   *decimal.Decimal `gorm:"default:null"`
-	ExchangeFee    *decimal.Decimal `gorm:"default:null"`
-	TransferFee    decimal.Decimal
-	Channel        common.TransferChannel `gorm:"default:null"`
+	Fee            decimal.Decimal
+	FeeCurrency    common.Currency
 	Status         common.TransferStatus
 	CreatedAt      time.Time `gorm:"default:null"`
 	UpdatedAt      time.Time `gorm:"default:null;autoUpdateTime:false"`
