@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -21,23 +20,22 @@ import (
 )
 
 type Parameter struct {
-	ID            uint64                    `json:"id"`
-	Name          string                    `json:"name"`
-	Description   string                    `json:"description"`
-	Key           common.ParameterKey       `json:"key" gorm:"column:key"`
-	Value         string                    `json:"value"`
-	SpecialValue  common.SpecialValue       `json:"specialValue" gorm:"default:null"`
-	ValueType     common.ParameterValueType `json:"valueType"`
-	Currency      common.Currency           `json:"currency" gorm:"default:null"`
-	Unit          common.UnitType           `json:"unit" gorm:"default:null"`
-	Encrypt       common.EncryptType        `json:"encrypt" gorm:"default:null"`
-	CategoryID    common.ParameterCategory  `json:"categoryId"`
-	CategoryName  string                    `json:"categoryName"`
-	SecurityLevel common.AdminLevel         `json:"securityLevel" gorm:"default:null"`
-	Remark        string                    `json:"remark" gorm:"default:null"`
-	Status        common.ParameterStatus    `json:"status"`
-	CreatedAt     time.Time                 `json:"createdAt"`
-	UpdatedAt     time.Time                 `json:"updatedAt"`
+	ID           uint64                    `json:"id"`
+	Name         string                    `json:"name"`
+	Description  string                    `json:"description"`
+	Key          common.ParameterKey       `json:"key" gorm:"column:key"`
+	Value        string                    `json:"value"`
+	SpecialValue common.SpecialValue       `json:"specialValue" gorm:"default:null"`
+	ValueType    common.ParameterValueType `json:"valueType"`
+	Currency     common.Currency           `json:"currency" gorm:"default:null"`
+	Unit         common.UnitType           `json:"unit" gorm:"default:null"`
+	Encrypt      common.EncryptType        `json:"encrypt" gorm:"default:null"`
+	CategoryID   common.ParameterCategory  `json:"categoryId"`
+	CategoryName string                    `json:"categoryName"`
+	Remark       string                    `json:"remark" gorm:"default:null"`
+	Status       common.ParameterStatus    `json:"status"`
+	CreatedAt    time.Time                 `json:"createdAt"`
+	UpdatedAt    time.Time                 `json:"updatedAt"`
 }
 
 type ParameterQuery struct {
@@ -46,20 +44,22 @@ type ParameterQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	KeyIn     []common.ParameterKey
-	utils.Page
+	common.Page
 }
 
 type ParameterDao struct {
-	db    infra.Database
-	env   *lib.Env
-	redis infra.Redis
+	db        infra.Database
+	env       *lib.Env
+	redis     infra.Redis
+	beBuilder *lib.BEBuilder
 }
 
-func NewParameterDao(db infra.Database, env *lib.Env, redis infra.Redis) *ParameterDao {
+func NewParameterDao(db infra.Database, env *lib.Env, redis infra.Redis, beBuilder *lib.BEBuilder) *ParameterDao {
 	return &ParameterDao{
-		db:    db,
-		env:   env,
-		redis: redis,
+		db:        db,
+		env:       env,
+		redis:     redis,
+		beBuilder: beBuilder,
 	}
 }
 
@@ -75,7 +75,7 @@ func (Parameter) TableName() string {
 
 func (ad *ParameterDao) ListByKeys(ctx context.Context, keys []common.ParameterKey) ([]*Parameter, error) {
 	if len(keys) == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ad.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*Parameter, 0)
 	db := ad.db.WithContext(ctx)
@@ -99,14 +99,14 @@ func (ad *ParameterDao) ListByKeys(ctx context.Context, keys []common.ParameterK
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *ParameterDao) GetByKey(ctx context.Context, key common.ParameterKey) (*Parameter, error) {
 	if key == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ad.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Parameter{}
 	db := ad.db.WithContext(ctx)
@@ -132,7 +132,7 @@ func (ad *ParameterDao) GetByKey(ctx context.Context, key common.ParameterKey) (
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }

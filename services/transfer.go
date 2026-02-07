@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"math/rand"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"time"
@@ -340,7 +339,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 	orderNO = "TRF_" + strconv.FormatUint(preview.FromWalletID, 10) + "_" + strconv.FormatUint(preview.ToWalletID, 10) +
 		"_" + strconv.FormatInt(time.Now().Unix(), 10) + strconv.Itoa(int(rnd.Int31n(10000)))
 
-	logger.Infof("start transfering, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
+	ts.logger.Infof("start transfering, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	var tErr error
 	err = utils.WithTX(ts.db.DB, func(tx *gorm.DB) error {
@@ -380,7 +379,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 		}
 
 		var rowsAffected int64
-		rowsAffected, tErr = ts.transactionRecordDao.Saves(ctx, []*orderDao.TransactionRecord{
+		rowsAffected, tErr = transactionRecordDaoTX.Saves(ctx, []*orderDao.TransactionRecord{
 			{
 				Type:                    common.TRANSACTION_RECORD_TYPE_TRANSFER,
 				TransactionNO:           orderNO,
@@ -502,7 +501,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 		return
 	}
 
-	logger.Infof("transfered, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
+	ts.logger.Infof("transfered, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	return
 }
@@ -511,13 +510,13 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 
 	categoryID := uint64(currency)
 	if !currency.IsValid() {
-		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_EXCHANGE_NO_SUCH_CATEGORY)
+		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_CURRENCY)
 		return
 	}
 
 	category, err := ts.categoryDao.GetByID(ctx, categoryID)
 	if err != nil {
-		logger.Warn("get failed", err)
+		ts.logger.Warn("get failed", err)
 		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -529,12 +528,12 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 		ts.env.LockDuration*time.Microsecond,
 		ts.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
-		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+		ts.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
-			logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+			ts.logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		}
 	}()
 
@@ -547,7 +546,7 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 		var wallet *cardDao.Card
 		wallet, tErr = cardDaoTX.GetByUserIDCategoryIDForUpdate(ctx, userID, uint64(currency))
 		if tErr != nil {
-			logger.Warn("get failed", tErr)
+			ts.logger.Warn("get failed", tErr)
 			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -568,7 +567,7 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 			Status:       common.CARD_STATUS_ACTIVATED,
 		})
 		if tErr != nil {
-			logger.Warn("save failed,", tErr)
+			ts.logger.Warn("save failed,", tErr)
 			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -581,7 +580,7 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 			Currency:     currency,
 			CurrencyType: currency.Type(),
 		}); tErr != nil {
-			logger.Warn("save failed,", tErr)
+			ts.logger.Warn("save failed,", tErr)
 			tErr = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -594,7 +593,7 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 	}
 
 	if err != nil {
-		logger.Warn("transaction failed,", err)
+		ts.logger.Warn("transaction failed,", err)
 		return 0, ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 

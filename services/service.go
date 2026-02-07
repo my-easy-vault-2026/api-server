@@ -5,9 +5,7 @@ import "go.uber.org/fx"
 var Module = fx.Options(
 	fx.Provide(NewAccountService),
 	fx.Provide(NewAuthService),
-	fx.Provide(NewCardService),
 	fx.Provide(NewCoinsdoService),
-	fx.Provide(NewFinancialService),
 	fx.Provide(NewOrderService),
 	fx.Provide(NewQuoteService),
 	fx.Provide(NewSystemService),

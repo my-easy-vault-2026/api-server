@@ -1,10 +1,10 @@
 package services
 
 import (
+	"api-server/infra"
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"time"
 
@@ -12,51 +12,73 @@ import (
 )
 
 type WebsocketService struct {
-	logger lib.Logger
+	logger    lib.Logger
+	beBuilder *lib.BEBuilder
+	ws        *infra.WsServer
+	env       *lib.Env
+	redis     infra.Redis
 }
 
-func NewWebsocketService(logger lib.Logger) *WebsocketService {
+func NewWebsocketService(logger lib.Logger,
+	beBuilder *lib.BEBuilder,
+	ws *infra.WsServer,
+	env *lib.Env,
+	redis infra.Redis) *WebsocketService {
 
 	return &WebsocketService{
-		logger: logger,
+		logger:    logger,
+		beBuilder: beBuilder,
+		ws:        ws,
+		env:       env,
+		redis:     redis,
 	}
 }
 
 func (ws *WebsocketService) Connect(ctx context.Context, conn *websocket.Conn, userID uint64) error {
 
-	var ch *utils.Channel
+	var ch *infra.Channel
 	//default broadcast size eq 512
-	ch = utils.NewChannel(utils.Ws.BroadcastSize)
+	ch = infra.NewChannel(ws.env.BroadcastSize)
 	ch.Conn = conn
 
 	ctx, cancel := context.WithCancel(context.Background())
 	ch.CancelFunc = cancel
 
 	//send data to websocket conn
-	go utils.Ws.WritePump(ctx, ch)
+	go ws.ws.WritePump(ctx, ch)
 	//get data from websocket conn
-	go utils.Ws.ReadPump(ctx, ch)
+	go ws.ws.ReadPump(ctx, ch)
 
-	err := utils.Ws.Bucket(userID).Put(userID, ch)
+	err := ws.ws.Bucket(userID).Put(userID, ch)
 	if err != nil {
-		return utils.NewBusinessError(ctx, common.CODE_WEBSOCKET_CREATE_WEBSOCKET_CHANNEL_FAILED)
+		return ws.beBuilder.NewBusinessError(ctx, common.CODE_CREATE_WEBSOCKET_CHANNEL_FAILED)
 	}
 
-	err = utils.RDB.Set(ctx, utils.GetWebsocketNodeKey(userID), utils.EnvConfig.GoNode, utils.Config.Websocket.PingPeriodMs*time.Millisecond*2).Err()
+	err = ws.redis.Set(ctx, utils.GetWebsocketNodeKey(userID), ws.env.GoNode, ws.env.PingPeriod*time.Millisecond*2).Err()
 	if err != nil {
 		return err
 	}
 
 	for {
-
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+			// default:
+			//     var msg Message
+			//     if err := conn.ReadJSON(&msg); err != nil {
+			//         return err
+			//     }
+			//     // 處理消息
+			//     ws.handleMessage(ctx, userID, msg)
+		}
 	}
 }
 
 func (ws *WebsocketService) ForwardMessage(ctx context.Context, msg *common.Msg) error {
 
-	c := utils.Ws.Bucket(msg.UserID).Channel(msg.UserID)
+	c := ws.ws.Bucket(msg.UserID).Channel(msg.UserID)
 	if c == nil {
-		logger.Debugf("channel not found: [%d] %#v", msg.UserID, msg)
+		ws.logger.Debugf("channel not found: [%d] %#v", msg.UserID, msg)
 		return nil
 	}
 
@@ -68,6 +90,6 @@ func (ws *WebsocketService) ForwardMessage(ctx context.Context, msg *common.Msg)
 
 func (ws *WebsocketService) Read(ctx context.Context, msg *common.Msg) error {
 
-	logger.Infof("message read: [%s][%s]", msg.SequenceID, msg.MsgID)
+	ws.logger.Infof("message read: [%s][%s]", msg.SequenceID, msg.MsgID)
 	return nil
 }

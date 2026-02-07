@@ -11,7 +11,6 @@ import (
 	"errors"
 	"math"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"strings"
@@ -69,12 +68,12 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 		},
 	})
 	if err != nil {
-		logger.Warn("db get failed", err)
+		as.logger.Warn("db get failed", err)
 		return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	if user == nil {
-		logger.Infof("new user: %s", email)
+		as.logger.Infof("new user: %s", email)
 
 		user = &userDao.User{
 			Email: email,
@@ -82,7 +81,7 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 		}
 		salt, err := utils.GenerateSalt(as.env.SaltLength)
 		if err != nil {
-			logger.Warn("generate salt failed,", err)
+			as.logger.Warn("generate salt failed,", err)
 			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 
@@ -91,29 +90,29 @@ func (as *AuthService) LoginOrCreate(ctx context.Context, email string, pinCode 
 		// 使用 bcrypt 哈希組合後的密碼
 		hashedPinCode, err := bcrypt.GenerateFromPassword([]byte(saltedPassword), bcrypt.DefaultCost)
 		if err != nil {
-			logger.Warn("hash password failed,", err)
+			as.logger.Warn("hash password failed,", err)
 			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 		user.Salt = salt
 		user.PinCode = string(hashedPinCode)
 		userID, err := as.userDao.Save(ctx, user)
 		if err != nil {
-			logger.Warn("save failed,", err)
+			as.logger.Warn("save failed,", err)
 			return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
-		logger.Infof("user created: %d", userID)
+		as.logger.Infof("user created: %d", userID)
 	}
 
 	saltedPassword := pinCode + user.Salt
 	err = bcrypt.CompareHashAndPassword([]byte(user.PinCode), []byte(saltedPassword))
 	if err != nil {
-		logger.Infof("invalid pin code for user: %s", email)
+		as.logger.Infof("invalid pin code for user: %s", email)
 		return nil, "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_EMAIL_OR_PIN_CODE_INVALID)
 	}
 
 	key, expiredAt, err := as.GenerateAuthToken(ctx, user, email)
 	if err != nil {
-		logger.Warnf("GenerateAuthToken: %s", err)
+		as.logger.Warnf("GenerateAuthToken: %s", err)
 		return nil, "", time.Time{}, err
 	}
 
@@ -137,8 +136,8 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user *userDao.User
 
 	groups, err := as.userGroupDao.ListByUserID(ctx, user.ID)
 	if err != nil {
-		logger.Warn("get failed", err)
-		return "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("get failed", err)
+		return "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	for _, group := range groups {
@@ -152,15 +151,15 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user *userDao.User
 		as.env.LoginDataExpireTime,
 	)
 	if err != nil {
-		logger.Warn("set failed", err)
-		return "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("set failed", err)
+		return "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	wsKey := utils.GetWsTokenRedisKey(common.ROLE_USER, wsToken)
 	err = as.redis.Set(ctx, wsKey, token.UserID, time.Hour*as.env.TokenExpireTime).Err()
 	if err != nil {
-		logger.Warn("save failed", err)
-		return "", time.Time{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("save failed", err)
+		return "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	return key, expiredAt, nil
@@ -171,8 +170,8 @@ func (as *AuthService) Logout(ctx context.Context, token string, userID uint64) 
 	err := as.tokenDao.Remove(ctx, token)
 
 	if err != nil {
-		logger.Warn("remove failed", err)
-		return utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("remove failed", err)
+		return as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	return nil
@@ -184,33 +183,33 @@ func (as *AuthService) CheckAPIAuthority(ctx context.Context, url string, key st
 
 	token, err := as.tokenDao.Get(ctx, key)
 	if err != nil {
-		logger.Warn("get failed", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("get failed", err)
+		return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	if token != nil {
 		if token.ExpiredAt.Before(time.Now()) {
-			return nil, nil, utils.NewBusinessError(ctx, common.CODE_AUTH_TOKEN_EXPIRED)
+			return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_TOKEN_EXPIRED)
 		}
 		user, err := as.userDao.GetByUserID(ctx, token.UserID)
 		if err != nil {
-			logger.Warnf("get failed %v", err)
-			return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+			as.logger.Warnf("get failed %v", err)
+			return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		}
 		if user == nil {
-			logger.Warnf("user not exist")
+			as.logger.Warnf("user not exist")
 			err = as.Logout(ctx, key, token.UserID)
 			if err != nil {
-				logger.Warnf("remove token failed. %v %v", token.UserID, err)
-				return nil, nil, utils.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
+				as.logger.Warnf("remove token failed. %v %v", token.UserID, err)
+				return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
 			}
-			return nil, nil, utils.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
+			return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
 		}
 	}
 
 	authorities, err := as.apiAuthorityDao.List(ctx)
 	if err != nil {
-		logger.Warn("get failed", err)
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		as.logger.Warn("get failed", err)
+		return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	var passed bool
@@ -265,9 +264,9 @@ func (as *AuthService) CheckAPIAuthority(ctx context.Context, url string, key st
 			return nil, nil, possibleErr
 		}
 		if token == nil {
-			return nil, nil, utils.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
+			return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_NOT_LOGIN)
 		}
-		return nil, nil, utils.NewBusinessError(ctx, common.CODE_NO_PERMISSION)
+		return nil, nil, as.beBuilder.NewBusinessError(ctx, common.CODE_NO_PERMISSION)
 	}
 
 	return token, auths, nil
@@ -302,8 +301,8 @@ func (as *AuthService) RateLimit(c *gin.Context, token *authDao.Token, auths []*
 
 			cmds, err := pipe.Exec(c)
 			if err != nil && !errors.Is(err, redis.Nil) {
-				logger.Warnf("tx failed: %v", err)
-				return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+				as.logger.Warnf("tx failed: %v", err)
+				return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 			}
 
 			now := time.Now()
@@ -319,13 +318,13 @@ func (as *AuthService) RateLimit(c *gin.Context, token *authDao.Token, auths []*
 			} else {
 				tokenLeft, err = strconv.Atoi(cmds[2].(*redis.StringCmd).Val())
 				if err != nil {
-					logger.Warnf("parse failed [%s]: %v", cmds[2].(*redis.StringCmd).Val(), err)
+					as.logger.Warnf("parse failed [%s]: %v", cmds[2].(*redis.StringCmd).Val(), err)
 					create = true
 				}
 				bucketData = cmds[3].(*redis.StringCmd).Val()
 				t, err := time.Parse(time.RFC3339Nano, cmds[3].(*redis.StringCmd).Val())
 				if err != nil {
-					logger.Warnf("parse failed [%s]: %v", cmds[3].(*redis.StringCmd).Val(), err)
+					as.logger.Warnf("parse failed [%s]: %v", cmds[3].(*redis.StringCmd).Val(), err)
 					create = true
 				}
 				lastGenAt = t
@@ -333,7 +332,7 @@ func (as *AuthService) RateLimit(c *gin.Context, token *authDao.Token, auths []*
 				window := a.Window * 1e6 / time.Duration(a.Count) // us per req
 				gen = int(now.Sub(lastGenAt) / time.Microsecond / window)
 				newGenAt = lastGenAt.Add(window * time.Microsecond * time.Duration(gen))
-				logger.Infof("last: %s, now: %s, dur: %ds, window: %d, gen: %d, newGenAt: %s", lastGenAt.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), now.Sub(lastGenAt)/time.Second, window, gen, newGenAt.Format(time.RFC3339Nano))
+				as.logger.Infof("last: %s, now: %s, dur: %ds, window: %d, gen: %d, newGenAt: %s", lastGenAt.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), now.Sub(lastGenAt)/time.Second, window, gen, newGenAt.Format(time.RFC3339Nano))
 				if gen > a.Count {
 					create = true
 				} else if gen > 0 {
@@ -352,8 +351,8 @@ func (as *AuthService) RateLimit(c *gin.Context, token *authDao.Token, auths []*
 				pipe.Set(c, dataKey, now.Format(time.RFC3339Nano), a.Window*time.Second*2)
 				_, err := pipe.Exec(c)
 				if err != nil {
-					logger.Warnf("tx failed: %v", err)
-					return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+					as.logger.Warnf("tx failed: %v", err)
+					return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 				}
 				newGenAt = now
 			case update:
@@ -363,68 +362,68 @@ func (as *AuthService) RateLimit(c *gin.Context, token *authDao.Token, auths []*
 
 				cmds, err := pipe.Exec(c)
 				if err != nil && !errors.Is(err, redis.Nil) {
-					logger.Warnf("tx failed: %v", err)
-					return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+					as.logger.Warnf("tx failed: %v", err)
+					return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 				}
 				if newTokenLeft, newBucketData := cmds[0].(*redis.IntCmd).Val(), cmds[1].(*redis.StringCmd).Val(); newBucketData != bucketData {
-					logger.Warnf("concurrenct token incr. before: [%d],[%s]. after: [%d],[%s]", newTokenLeft-int64(gen), lastGenAt.Format(time.RFC3339Nano), newTokenLeft, newBucketData)
+					as.logger.Warnf("concurrenct token incr. before: [%d],[%s]. after: [%d],[%s]", newTokenLeft-int64(gen), lastGenAt.Format(time.RFC3339Nano), newTokenLeft, newBucketData)
 
 					pipe = as.redis.TxPipeline()
 					pipe.DecrBy(c, bucketKey, int64(gen))
 					pipe.Set(c, dataKey, newBucketData, a.Window*time.Second*2)
 					cmds, err := pipe.Exec(c)
 					if err != nil {
-						logger.Warnf("tx failed: %v", err)
-						return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+						as.logger.Warnf("tx failed: %v", err)
+						return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 					}
 					if decrToken := cmds[0].(*redis.IntCmd).Val(); decrToken <= 0 {
-						logger.Warnf("rate over limit: %s", bucketKey)
+						as.logger.Warnf("rate over limit: %s", bucketKey)
 						rateLimits[i].Remaining = 0
 						rateLimits[i].Used = a.Count
 						t, err := time.Parse(time.RFC3339Nano, newBucketData)
 						if err != nil {
-							logger.Warnf("parse failed [%s]: %v", newBucketData, err)
+							as.logger.Warnf("parse failed [%s]: %v", newBucketData, err)
 							create = true
 						}
 						rateLimits[i].Reset = t.Add(a.Window * time.Second)
-						return rateLimits[i], utils.NewBusinessError(c, common.CODE_TOO_MANY_REQUEST)
+						return rateLimits[i], as.beBuilder.NewBusinessError(c, common.CODE_TOO_MANY_REQUEST)
 					}
 				}
 				if newTokenLeft, newBucketData := cmds[0].(*redis.IntCmd).Val(), cmds[1].(*redis.StringCmd).Val(); newTokenLeft >= int64(a.Count) {
-					logger.Infof("token full. before: [%d],[%s]. after: [%d],[%s]", newTokenLeft-int64(gen), lastGenAt.Format(time.RFC3339Nano), newTokenLeft, newBucketData)
+					as.logger.Infof("token full. before: [%d],[%s]. after: [%d],[%s]", newTokenLeft-int64(gen), lastGenAt.Format(time.RFC3339Nano), newTokenLeft, newBucketData)
 					pipe = as.redis.TxPipeline()
 					pipe.Set(c, bucketKey, strconv.Itoa(a.Count), a.Window*time.Second*2)
 					pipe.Set(c, dataKey, now.Format(time.RFC3339Nano), a.Window*time.Second*2)
 					_, err := pipe.Exec(c)
 					if err != nil {
-						logger.Warnf("tx failed: %v", err)
-						return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+						as.logger.Warnf("tx failed: %v", err)
+						return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 					}
 				}
 			}
 
 			getRes := as.redis.Get(c, bucketKey)
 			if getRes.Err() != nil {
-				logger.Warnf("get failed: %v", getRes.Err())
-				return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+				as.logger.Warnf("get failed: %v", getRes.Err())
+				return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 			}
 
 			tokenLeft, err = strconv.Atoi(getRes.Val())
 			if err != nil {
-				logger.Warnf("parse failed: %v", err)
+				as.logger.Warnf("parse failed: %v", err)
 				as.redis.Del(c, bucketKey)
 			}
 			if tokenLeft <= 0 {
 				rateLimits[i].Remaining = 0
 				rateLimits[i].Used = a.Count
 				rateLimits[i].Reset = newGenAt.Add(a.Window * time.Second)
-				return rateLimits[i], utils.NewBusinessError(c, common.CODE_TOO_MANY_REQUEST)
+				return rateLimits[i], as.beBuilder.NewBusinessError(c, common.CODE_TOO_MANY_REQUEST)
 			}
 
 			decrRes := as.redis.Decr(c, bucketKey)
 			if decrRes.Err() != nil {
-				logger.Warnf("decr failed: %v", decrRes.Err())
-				return nil, utils.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
+				as.logger.Warnf("decr failed: %v", decrRes.Err())
+				return nil, as.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR)
 			}
 
 			rateLimits[i].Remaining = int(decrRes.Val())

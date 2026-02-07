@@ -7,8 +7,6 @@ import (
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/entities"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"time"
@@ -57,7 +55,7 @@ func (cs *WalletService) ListWalletsByUserID(ctx context.Context, userID uint64)
 		},
 	})
 	if err != nil {
-		logger.Warn("get failed,", err)
+		cs.logger.Warn("get failed,", err)
 		return []*cardDao.Card{}, cs.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
@@ -66,44 +64,13 @@ func (cs *WalletService) ListWalletsByUserID(ctx context.Context, userID uint64)
 
 func (cs *WalletService) ListCategory(ctx context.Context) ([]*accountDao.Category, error) {
 
-	categories, err := cs.categoryDao.ListByTypeUsage(ctx, 0, []common.CategoryUsage{common.CATEGORY_USAGE_USER_DISPLAY})
+	categories, err := cs.categoryDao.List(ctx)
 	if err != nil {
-		logger.Warn("get failed,", err)
+		cs.logger.Warn("get failed,", err)
 		return []*accountDao.Category{}, cs.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	return categories, nil
-}
-
-func (ws *WalletService) ListWallets(ctx context.Context, form *entities.ListWalletsForm, userID uint64) ([]*cardDao.Card, error) {
-
-	wallets, err := ws.cardDao.Gets(ctx, &cardDao.CardQuery{
-		Card: cardDao.Card{
-			UserID: userID,
-		},
-		TypeIn: []common.AssetType{common.ASSET_TYPE_CRYPTO, common.ASSET_TYPE_FIAT},
-	})
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return []*cardDao.Card{}, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-
-	return wallets, nil
-}
-func (ws *WalletService) ListWalletByUserIDWalletID(ctx context.Context, userID uint64, walletIDs []uint64) ([]*cardDao.Card, error) {
-
-	cards, err := ws.cardDao.Gets(ctx, &cardDao.CardQuery{
-		Card: cardDao.Card{
-			UserID: userID,
-		},
-		IDIn: walletIDs,
-	})
-	if err != nil {
-		logger.Warn("get failed,", err)
-		return []*cardDao.Card{}, ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-
-	return cards, nil
 }
 
 func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, userID uint64) (uint64, error) {
@@ -115,7 +82,7 @@ func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, us
 		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 	if category == nil {
-		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_WALLET_NO_SUCH_CATEGORY)
+		return 0, ws.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_CURRENCY)
 	}
 
 	locker := ws.lockers.NewLocker()

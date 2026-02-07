@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"math/rand"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 	"strconv"
 	"time"
@@ -94,13 +93,13 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	} else if fromWallet == nil || fromWallet.UserID != userID {
-		err = es.beBuilder.NewBusinessError(ctx, common.CODE_EXCHANGE_NO_SUCH_CARD)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
 		return
 	}
 
 	toWallet := (*cardDao.Card)(nil)
 	if toCurrency == 0 {
-		err = es.beBuilder.NewBusinessError(ctx, common.CODE_EXCHANGE_NO_SUCH_CATEGORY)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_CURRENCY)
 		return
 	}
 	toWallet, err = es.cardDao.GetByUserIDCategoryID(ctx, userID, uint64(toCurrency))
@@ -140,7 +139,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 
 	fromUser, err := es.userDao.GetByUserID(ctx, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
+		es.logger.Warn("get failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -165,7 +164,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	asset, err := es.assetDao.GetByIDUserID(ctx, fromWallet.ID, userID)
 
 	if err != nil {
-		logger.Warn("get failed,", err)
+		es.logger.Warn("get failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -178,12 +177,12 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 
 	param, err := es.parameterDao.GetByKey(ctx, common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE)
 	if err != nil {
-		logger.Warn("get failed,", err)
+		es.logger.Warn("get failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
 	if param == nil {
-		logger.Warnf("no parameter: [%s]", common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE)
+		es.logger.Warnf("no parameter: [%s]", common.PARAMETER_KEY_EXCHANGE_EXCHANGE_FEE)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -191,7 +190,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	exchangeFee := decimal.Decimal{}
 	v, err := decimal.NewFromString(param.Value)
 	if err != nil {
-		logger.Warn("parse failed,", err)
+		es.logger.Warn("parse failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -201,7 +200,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		if fromWallet.Currency != param.Currency {
 			feeRates, err2 := es.quoteService.GetExchangeRates(ctx, 0, param.Currency, fromWallet.Currency)
 			if err2 != nil {
-				logger.Warn("get exchange rate failed,", err2)
+				es.logger.Warn("get exchange rate failed,", err2)
 				err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 				return
 			}
@@ -235,7 +234,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		toWallet.Currency,
 	})
 	if err != nil {
-		logger.Warn("get failed,", err)
+		es.logger.Warn("get failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -255,7 +254,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 
 	data, err := json.Marshal(preview)
 	if err != nil {
-		logger.Warn("marshal failed,", err)
+		es.logger.Warn("marshal failed,", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -263,7 +262,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	key = utils.Md5String(string(data) + time.Now().String())
 
 	if err2 := es.previewDao.Save(ctx, key, preview, es.env.PreviewExpiryTime*time.Second); err2 != nil {
-		logger.Warn("save failed,", err2)
+		es.logger.Warn("save failed,", err2)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -358,7 +357,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, user
 	orderNO = "EXG_" + strconv.FormatUint(preview.FromWalletID, 10) + "_" + strconv.FormatUint(preview.ToWalletID, 10) +
 		"_" + strconv.FormatInt(time.Now().Unix(), 10) + strconv.Itoa(int(rnd.Int31n(10000)))
 
-	logger.Infof("start exchanging, card ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
+	es.logger.Infof("start exchanging, card ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	var tErr error
 	err = utils.WithTX(es.db.DB, func(tx *gorm.DB) error {
@@ -469,7 +468,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, user
 			// 用戶扣幣
 			{
 				UserID:          userID,
-				CardID:          preview.FromWalletID,
+				WalletID:        preview.FromWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.FromCategoryID,
 				Currency:        preview.FromCurrency,
@@ -480,7 +479,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, user
 			// 用戶扣手續費
 			{
 				UserID:          userID,
-				CardID:          preview.FromWalletID,
+				WalletID:        preview.FromWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.FromCategoryID,
 				Currency:        preview.FromCurrency,
@@ -491,7 +490,7 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, user
 			// 用戶加幣
 			{
 				UserID:          userID,
-				CardID:          preview.ToWalletID,
+				WalletID:        preview.ToWalletID,
 				OrderNO:         orderNO,
 				CategoryID:      preview.ToCategoryID,
 				Currency:        preview.ToCurrency,
@@ -531,13 +530,13 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 
 	categoryID := uint64(currency)
 	if !currency.IsValid() {
-		err = es.beBuilder.NewBusinessError(ctx, common.CODE_EXCHANGE_NO_SUCH_CATEGORY)
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_CURRENCY)
 		return
 	}
 
 	category, err := es.categoryDao.GetByID(ctx, categoryID)
 	if err != nil {
-		logger.Warn("get failed", err)
+		es.logger.Warn("get failed", err)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
@@ -549,12 +548,12 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 		es.env.LockDuration*time.Microsecond,
 		es.env.LockWaitDuration*time.Microsecond,
 	); err != nil {
-		logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+		es.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err
 	}
 	defer func() {
 		if err := locker.UnLock(ctx); err != nil {
-			logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
+			es.logger.Warnf("unlock %s failed, %v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		}
 	}()
 
@@ -567,7 +566,7 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 		var wallet *cardDao.Card
 		wallet, tErr = cardDaoTX.GetByUserIDCategoryIDForUpdate(ctx, userID, uint64(currency))
 		if tErr != nil {
-			logger.Warn("get failed", tErr)
+			es.logger.Warn("get failed", tErr)
 			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -588,7 +587,7 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 			Status:       common.CARD_STATUS_ACTIVATED,
 		})
 		if tErr != nil {
-			logger.Warn("save failed,", tErr)
+			es.logger.Warn("save failed,", tErr)
 			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -601,7 +600,7 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 			Currency:     currency,
 			CurrencyType: currency.Type(),
 		}); tErr != nil {
-			logger.Warn("save failed,", tErr)
+			es.logger.Warn("save failed,", tErr)
 			tErr = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 			return tErr
 		}
@@ -614,7 +613,7 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 	}
 
 	if err != nil {
-		logger.Warn("transaction failed,", err)
+		es.logger.Warn("transaction failed,", err)
 		return 0, es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 

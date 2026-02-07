@@ -54,7 +54,7 @@ func (eh *ExchangeHandler) ExchangePreview(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		eh.logger.Error("no X-Uid")
 		eh.httpRes.ReError(c, http.StatusBadRequest, eh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
@@ -136,7 +136,7 @@ func (eh *ExchangeHandler) ExchangeConfirm(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		eh.logger.Error("no X-Uid")
 		eh.httpRes.ReError(c, http.StatusBadRequest, eh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))

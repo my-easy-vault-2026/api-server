@@ -7,53 +7,45 @@ import (
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/logger"
-	"shared-modules/utils"
 )
 
 type CoinsdoService struct {
-	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao
+	currencyConfigDao *coinsdoDao.CurrencyConfigDao
 	userDao           *userDao.UserDao
 	cardDao           *cardDao.CardDao
 	logger            lib.Logger
+	beBuilder         *lib.BEBuilder
 }
 
 func NewCoinsdoService(
-	cryptoCurrencyDao *coinsdoDao.CryptoCurrencyDao,
+	currencyConfigDao *coinsdoDao.CurrencyConfigDao,
 	userDao *userDao.UserDao,
 	cardDao *cardDao.CardDao,
 	logger lib.Logger,
+	beBuilder *lib.BEBuilder,
 ) *CoinsdoService {
 	return &CoinsdoService{
-		cryptoCurrencyDao: cryptoCurrencyDao,
+		currencyConfigDao: currencyConfigDao,
 		userDao:           userDao,
 		cardDao:           cardDao,
 		logger:            logger,
+		beBuilder:         beBuilder,
 	}
 }
 
 func (cs *CoinsdoService) ListDisplayDecimals(ctx context.Context) (map[common.Currency]int, error) {
-	currencies, err := cs.cryptoCurrencyDao.ListDisplayDecimalsByDistCurrencies(ctx)
+	currencies, err := cs.currencyConfigDao.ListDisplayDecimalsByDistCurrencies(ctx)
 
 	if err != nil {
-		logger.Warn("get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		cs.logger.Warn("get failed,", err)
+		return nil, cs.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 	}
 
 	decimals := make(map[common.Currency]int)
 
 	for _, currency := range currencies {
-		decimals[currency.CurrencyType] = currency.DisplayDecimals
+		decimals[currency.CurrencyType] = currency.Decimals
 	}
 
 	return decimals, nil
-}
-
-func (cs *CoinsdoService) GetCryptoCurrency(ctx context.Context, mainnet string, currency string) (*coinsdoDao.CryptoCurrency, error) {
-	cryptoCurrency, err := cs.cryptoCurrencyDao.GetCryptoCurrency(ctx, common.Mainnet(0).FromString(mainnet), currency)
-	if err != nil {
-		logger.Warn(ctx, "cryptoCurrency get failed,", err)
-		return nil, utils.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
-	}
-	return cryptoCurrency, nil
 }

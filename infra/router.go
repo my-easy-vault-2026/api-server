@@ -13,7 +13,7 @@ import (
 
 // Router -> Gin Router
 type Router struct {
-	*gin.Engine
+	*gin.Engine `name:"api"`
 }
 
 // NewRouter : all the routes are defined here
@@ -25,7 +25,7 @@ func NewRouter(
 	if env.Environment != "local" && env.SentryDSN != "" {
 		if err := sentry.Init(sentry.ClientOptions{
 			Dsn:         env.SentryDSN,
-			Environment: `clean-backend-` + env.Environment,
+			Environment: `api-server-` + env.Environment,
 		}); err != nil {
 			logger.Infof("Sentry initialization failed: %v\n", err)
 		}

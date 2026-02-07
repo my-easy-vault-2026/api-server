@@ -8,7 +8,6 @@ import (
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/logger"
 )
 
 type OrderService struct {
@@ -43,15 +42,15 @@ func (os *OrderService) PageTransactionRecords(ctx context.Context, walletID uin
 
 	wallet, err := os.cardDao.GetByIDUserID(ctx, walletID, userID)
 	if err != nil {
-		logger.Warn("get failed,", err)
+		os.logger.Warn("get failed,", err)
 		return nil, 0, 0, 0, err
 	}
 	if wallet == nil {
-		return nil, 0, 0, 0, os.beBuilder.NewBusinessError(ctx, common.CODE_ORDER_USER_HAS_NO_SUCH_CARD)
+		return nil, 0, 0, 0, os.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_WALLET)
 	}
-	records, pageCurrent, pageSize, total, err = os.transactionRecordDao.PageByUserIDCardID(ctx, userID, walletID, current, size)
+	records, pageCurrent, pageSize, total, err = os.transactionRecordDao.PageByUserIDWalletID(ctx, userID, walletID, current, size)
 	if err != nil {
-		logger.Warn("get failed,", err)
+		os.logger.Warn("get failed,", err)
 		return nil, 0, 0, 0, err
 	}
 

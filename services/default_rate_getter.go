@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"shared-modules/common"
-	"shared-modules/logger"
 	"shared-modules/utils"
 
 	"github.com/redis/go-redis/v9"
@@ -37,7 +36,7 @@ func (rg *DefaultRateGetter) GetExchangeRate(ctx context.Context, quote common.C
 	if err != nil {
 		if err == redis.Nil {
 			rg.logger.Errorf("GetExchangeRate: key %s not found", redisKey)
-			return nil, rg.beBuilder.NewBusinessError(ctx, common.CODE_QUOTE_NO_SUCH_RATE)
+			return nil, rg.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_RATE)
 		} else {
 			rg.logger.Errorf("GetExchangeRate: key %s error: %v", redisKey, err)
 			return nil, rg.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
@@ -47,7 +46,7 @@ func (rg *DefaultRateGetter) GetExchangeRate(ctx context.Context, quote common.C
 	var res *common.ExchangeRate
 	err = json.Unmarshal([]byte(rate), &res)
 	if err != nil {
-		logger.Error("GetExchangeRate JSON Unmarshal error: ", err)
+		rg.logger.Error("GetExchangeRate JSON Unmarshal error: ", err)
 		return nil, err
 	}
 

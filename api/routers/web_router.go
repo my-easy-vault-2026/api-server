@@ -1,10 +1,9 @@
-package router
+package routers
 
 import (
 	"api-server/api/handlers/web"
 	middleware "api-server/api/middlewares"
 	"api-server/lib"
-	"shared-modules/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +22,7 @@ type WebRouter struct {
 	commonHandler          *web.CommonHandler
 	exchangeHandler        *web.ExchangeHandler
 	websocketHandler       *web.WebsocketHandler
+	appVersionLib          *lib.APPVersionLib
 }
 
 var _ IRouter = (*WebRouter)(nil)
@@ -40,6 +40,7 @@ func NewWebRouter(r *gin.Engine,
 	commonHandler *web.CommonHandler,
 	exchangeHandler *web.ExchangeHandler,
 	websocketHandler *web.WebsocketHandler,
+	appVersionLib *lib.APPVersionLib,
 ) *WebRouter {
 	return &WebRouter{
 		r:                      r,
@@ -55,6 +56,7 @@ func NewWebRouter(r *gin.Engine,
 		commonHandler:          commonHandler,
 		exchangeHandler:        exchangeHandler,
 		websocketHandler:       websocketHandler,
+		appVersionLib:          appVersionLib,
 	}
 }
 
@@ -68,13 +70,13 @@ func (wr *WebRouter) Setup() {
 		w.GET("/user/:id", wr.userHandler.GetInfo)
 
 		w.POST("/wallet", wr.walletHandler.CreateWallet)
-		w.GET("/wallet", utils.VRHandle(wr.commonHandler.VersionOutdated,
-			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
-			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListWallets),
+		w.GET("/wallet", wr.appVersionLib.VRHandle(wr.commonHandler.VersionOutdated,
+			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
+			wr.appVersionLib.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListWallets),
 		))
-		w.GET("/wallet/category", utils.VRHandle(wr.commonHandler.VersionOutdated,
-			utils.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
-			utils.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListCategory),
+		w.GET("/wallet/category", wr.appVersionLib.VRHandle(wr.commonHandler.VersionOutdated,
+			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
+			wr.appVersionLib.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListCategory),
 		))
 
 		w.GET("/quote/exchangeRate/:quote/:base", wr.quoteHandler.GetExchange)

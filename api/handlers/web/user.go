@@ -60,7 +60,7 @@ func (uh *UserHandler) GetInfo(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		uh.logger.Error("no X-Uid")
 		uh.httpRes.ReError(c, http.StatusBadRequest, uh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -39,7 +38,7 @@ type APIAuthorityQuery struct {
 	Attrs     APIAuthority
 	ForUpdate bool
 	ForShare  bool
-	utils.Page
+	common.Page
 }
 
 type APIAuthorityDao struct {
@@ -83,7 +82,7 @@ func (ad *APIAuthorityDao) List(ctx context.Context) ([]*APIAuthority, error) {
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: ad.env.L2CacheExpire,
 		})
 }

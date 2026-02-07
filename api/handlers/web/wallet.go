@@ -14,7 +14,6 @@ import (
 )
 
 type WalletHandler struct {
-	cardService    *services.CardService
 	accountService *services.AccountService
 	coinsdoService *services.CoinsdoService
 	userService    *services.UserService
@@ -25,7 +24,7 @@ type WalletHandler struct {
 	httpRes        *lib.HttpRes
 }
 
-func NewWalletHandler(cardService *services.CardService,
+func NewWalletHandler(
 	accountService *services.AccountService,
 	coinsdoService *services.CoinsdoService,
 	userService *services.UserService,
@@ -35,7 +34,6 @@ func NewWalletHandler(cardService *services.CardService,
 	beBuilder *lib.BEBuilder,
 	httpRes *lib.HttpRes) *WalletHandler {
 	return &WalletHandler{
-		cardService:    cardService,
 		accountService: accountService,
 		coinsdoService: coinsdoService,
 		userService:    userService,
@@ -73,12 +71,12 @@ func (ch *WalletHandler) ListCategory(c *gin.Context) {
 		return
 	}
 
-	result := &entities.ListCardCategoryVO{
-		Records: make([]*entities.CardCategoryVO, len(categories)),
+	result := &entities.ListCategoryVO{
+		Records: make([]*entities.CategoryVO, len(categories)),
 	}
 
 	for i, category := range categories {
-		categoryCopy := &entities.CardCategoryVO{}
+		categoryCopy := &entities.CategoryVO{}
 		if err := copier.Copy(&categoryCopy, &category); err != nil {
 			ch.httpRes.ReError(c, http.StatusInternalServerError, err)
 			return
@@ -120,7 +118,7 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		wh.logger.Error("no X-Uid")
 		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
@@ -133,28 +131,27 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 		return
 	}
 
-	cards, err := wh.walletService.ListWalletsByUserID(c, userID)
+	wallets, err := wh.walletService.ListWalletsByUserID(c, userID)
 	if err != nil {
 		wh.httpRes.ReError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	if len(cards) == 0 {
+	if len(wallets) == 0 {
 		wh.httpRes.ReData(
 			c,
-			&entities.ListCardVO{
-				Records: make([]*entities.CardVO, 0),
+			&entities.ListWalletsVO{
+				Records: make([]*entities.WalletVO, 0),
 			},
 		)
 		return
 	}
 
-	cardIDs := make([]uint64, 0, len(cards))
-	categoryIDs := make([]uint64, 0, len(cards))
-	for _, card := range cards {
-		cardIDs = append(cardIDs, card.ID)
-		categoryIDs = append(categoryIDs, card.CategoryID)
-
+	cardIDs := make([]uint64, 0, len(wallets))
+	categoryIDs := make([]uint64, 0, len(wallets))
+	for _, wallet := range wallets {
+		cardIDs = append(cardIDs, wallet.ID)
+		categoryIDs = append(categoryIDs, wallet.CategoryID)
 	}
 
 	assets, err := wh.accountService.ListAssetsByIDInUserID(c, cardIDs, userID)
@@ -175,20 +172,20 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 	}
 
 	result := &entities.ListWalletsVO{
-		Records: make([]*entities.WalletVO, len(cards)),
+		Records: make([]*entities.WalletVO, len(wallets)),
 	}
 
-	for i, card := range cards {
+	for i, wallet := range wallets {
 
 		result.Records[i] = &entities.WalletVO{
-			ID:         card.ID,
-			UserID:     card.UserID,
-			CategoryID: card.CategoryID,
-			Amount:     assetMap[card.ID].Copy(),
-			Nation:     card.Nation,
-			Currency:   card.Currency.String(),
-			CreatedAt:  card.CreatedAt.UnixMilli(),
-			UpdatedAt:  card.UpdatedAt.UnixMilli(),
+			ID:         wallet.ID,
+			UserID:     wallet.UserID,
+			CategoryID: wallet.CategoryID,
+			Amount:     assetMap[wallet.ID].Copy(),
+			Nation:     wallet.Nation,
+			Currency:   wallet.Currency.String(),
+			CreatedAt:  wallet.CreatedAt.UnixMilli(),
+			UpdatedAt:  wallet.UpdatedAt.UnixMilli(),
 		}
 
 	}
@@ -217,7 +214,7 @@ func (wh *WalletHandler) CreateWallet(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		wh.logger.Error("no X-Uid")
 		wh.httpRes.ReError(c, http.StatusBadRequest, wh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))

@@ -1,4 +1,4 @@
-package router
+package routers
 
 import (
 	"api-server/api/handlers/test"

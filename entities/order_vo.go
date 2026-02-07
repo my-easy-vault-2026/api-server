@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"shared-modules/utils"
+	"shared-modules/common"
 
 	"github.com/shopspring/decimal"
 )
@@ -44,5 +44,5 @@ type TransactionRecordVO struct {
 }
 
 type PageTransactionRecordsVO struct {
-	utils.PageData[[]*TransactionRecordVO]
+	common.PageData[[]*TransactionRecordVO]
 }

@@ -1,4 +1,4 @@
-package middleware
+package middlewares
 
 import (
 	"api-server/lib"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"shared-modules/common"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -54,21 +53,19 @@ func (ah *ApiAuthorityMiddleWare) checkAPIAuth(c *gin.Context, url string, key s
 	if err != nil {
 		return err
 	}
+	if token == nil {
+		return nil
+	}
 
-	rateLimit, err := ah.authService.RateLimit(c, token, auths)
-	if rateLimit != nil {
-		c.Writer.Header().Set(common.HEADER_X_RATELIMIT_LIMIT, strconv.Itoa(rateLimit.Limit))
-		c.Writer.Header().Set(common.HEADER_X_RATELIMIT_REMAINING, strconv.Itoa(rateLimit.Remaining))
-		c.Writer.Header().Set(common.HEADER_X_RATELIMIT_USED, strconv.Itoa(rateLimit.Used))
-		c.Writer.Header().Set(common.HEADER_X_RATELIMIT_RESET, strconv.FormatInt(rateLimit.Reset.Unix(), 10))
-	}
-	if err != nil {
-		return err
-	}
+	ah.logger.Infof("check token, userId=%d", token.UserID)
+
+	c.Set(common.CTX_KEY_AUTH_TOKEN, token)
+	c.Set(common.CTX_KEY_AUTH_AUTHS, auths)
 
 	if token != nil {
-		c.Set(common.HEADER_X_GROUP_IDS, strings.Trim(strings.Join(strings.Fields(fmt.Sprint(token.GroupIDs)), ","), "[]"))
-		c.Set(common.HEADER_X_UID, token.UserID)
+		c.Set(common.CTX_KEY_AUTH_GROUP, strings.Trim(strings.Join(strings.Fields(fmt.Sprint(token.GroupIDs)), ","), "[]"))
+		c.Set(common.CTX_KEY_AUTH_UID, token.UserID)
+		c.Set(common.CTX_KEY_AUTH_ROLE, token.Role)
 	}
 
 	return nil

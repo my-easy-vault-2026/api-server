@@ -56,7 +56,7 @@ func (th *TransferHandler) TransferPreview(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		th.logger.Error("no X-Uid")
 		th.httpRes.ReError(c, http.StatusBadRequest, th.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
@@ -124,7 +124,7 @@ func (th *TransferHandler) TransferConfirm(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		th.logger.Error("no X-Uid")
 		th.httpRes.ReError(c, http.StatusBadRequest, th.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))

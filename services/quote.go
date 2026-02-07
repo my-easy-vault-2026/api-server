@@ -5,17 +5,16 @@ import (
 	"api-server/lib"
 	"context"
 	"shared-modules/common"
-	"shared-modules/logger"
 )
 
 type QuoteService struct {
 	parameterDao *systemDao.ParameterDao
 	rateGetters  RateGetters
-	logger       logger.Logger
+	logger       lib.Logger
 	beBuilder    *lib.BEBuilder
 }
 
-func NewQuoteService(parameterDao *systemDao.ParameterDao, rateGetters RateGetters, logger logger.Logger, beBuilder *lib.BEBuilder) *QuoteService {
+func NewQuoteService(parameterDao *systemDao.ParameterDao, rateGetters RateGetters, logger lib.Logger, beBuilder *lib.BEBuilder) *QuoteService {
 	return &QuoteService{
 		parameterDao: parameterDao,
 		rateGetters:  rateGetters,

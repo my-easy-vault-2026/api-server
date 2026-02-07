@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"os"
 	"time"
 
 	"github.com/spf13/viper"
@@ -12,12 +13,13 @@ type Env struct {
 	Environment string `mapstructure:"ENVIRONMENT"`
 	GoNode      string `mapstructure:"GO_NODE"`
 
-	DBUsername string `mapstructure:"DB_USER"`
-	DBPassword string `mapstructure:"DB_PASS"`
-	DBHost     string `mapstructure:"DB_HOST"`
-	DBPort     string `mapstructure:"DB_PORT"`
-	DBName     string `mapstructure:"DB_NAME"`
-	DBType     string `mapstructure:"DB_TYPE"`
+	DBUsername       string `mapstructure:"DB_USER"`
+	DBPassword       string `mapstructure:"DB_PASS"`
+	DBHost           string `mapstructure:"DB_HOST"`
+	DBPort           string `mapstructure:"DB_PORT"`
+	DBName           string `mapstructure:"DB_NAME"`
+	DBType           string `mapstructure:"DB_TYPE"`
+	DBTimezoneOffset int    `mapstructure:"DB_TIMEZONE_OFFSET"`
 
 	// 從庫配置 (支持多個)
 	DBSlaveHosts     []string `mapstructure:"DB_SLAVE_HOSTS"`     // 逗號分隔
@@ -63,17 +65,9 @@ type Env struct {
 
 	PreviewExpiryTime time.Duration `mapstructure:"PREVIEW_EXPIRY_TIME"`
 
-	MailClientID     string `mapstructure:"MAIL_CLIENT_ID"`
-	MailClientSecret string `mapstructure:"MAIL_CLIENT_SECRET"`
-	MailTokenType    string `mapstructure:"MAIL_TOKEN_TYPE"`
-
 	SentryDSN          string `mapstructure:"SENTRY_DSN"`
+	TimeZone           string `mapstructure:"TIMEZONE"`
 	MaxMultipartMemory int64  `mapstructure:"MAX_MULTIPART_MEMORY"`
-	StorageBucketName  string `mapstructure:"STORAGE_BUCKET_NAME"`
-
-	TimeZone      string `mapstructure:"TIMEZONE"`
-	AdminEmail    string `mapstructure:"ADMIN_EMAIL"`
-	AdminPassword string `mapstructure:"ADMIN_PASSWORD"`
 }
 
 var globalEnv = Env{
@@ -85,7 +79,12 @@ func GetEnv() Env {
 }
 
 func NewEnv(logger Logger) *Env {
-	viper.SetConfigFile(".env")
+
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile == "" {
+		configFile = ".env"
+	}
+	viper.SetConfigFile(configFile)
 
 	err := viper.ReadInConfig()
 	if err != nil {

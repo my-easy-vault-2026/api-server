@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 要建立 symlink 的目錄名稱清單
-MODULES=(common lang logger utils)
+MODULES=(common lang utils)
 
 echo "🔁 建立 shared-modules 的 symlink 到本專案目錄..."
 

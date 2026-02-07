@@ -3,7 +3,6 @@ package account
 import (
 	"context"
 	"shared-modules/common"
-	"shared-modules/utils"
 
 	"api-server/infra"
 	"api-server/lib"
@@ -25,18 +24,24 @@ type AssetTransaction struct {
 }
 
 type AssetTransactionDao struct {
-	db       infra.Database
-	env      *lib.Env
-	assetDao *AssetDao
-	billDao  *BillDao
+	db        infra.Database
+	env       *lib.Env
+	assetDao  *AssetDao
+	billDao   *BillDao
+	beBuilder *lib.BEBuilder
 }
 
-func NewAssetTransactionDao(db infra.Database, env *lib.Env) *AssetTransactionDao {
+func NewAssetTransactionDao(db infra.Database,
+	env *lib.Env,
+	assetDao *AssetDao,
+	billDao *BillDao,
+	beBuilder *lib.BEBuilder) *AssetTransactionDao {
 	return &AssetTransactionDao{
-		db:       db,
-		env:      env,
-		assetDao: NewAssetDao(db, env),
-		billDao:  NewBillDao(db, env),
+		db:        db,
+		env:       env,
+		assetDao:  assetDao,
+		billDao:   billDao,
+		beBuilder: beBuilder,
 	}
 }
 
@@ -59,19 +64,19 @@ func (td *AssetTransactionDao) BatchTransaction(ctx context.Context, transaction
 
 		switch transactions[i].TransactionType {
 		case common.TRANSACTION_TYPE_ASSET_ADD:
-			err = td.assetDao.AddAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount)
+			err = td.assetDao.AddAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount)
 		case common.TRANSACTION_TYPE_ASSET_DEDUCT:
-			err = td.assetDao.DeductAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
+			err = td.assetDao.DeductAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
 		case common.TRANSACTION_TYPE_ASSET_FREEZE:
-			err = td.assetDao.FreezeAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
+			err = td.assetDao.FreezeAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
 		case common.TRANSACTION_TYPE_ASSET_UNFREEZE:
-			err = td.assetDao.UnfreezeAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
+			err = td.assetDao.UnfreezeAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
 		case common.TRANSACTION_TYPE_FROZEN_ASSET_ADD:
-			err = td.assetDao.AddFreezedAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount)
+			err = td.assetDao.AddFreezedAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount)
 		case common.TRANSACTION_TYPE_FROZEN_ASSET_DEDUCT:
-			err = td.assetDao.DeductFreezeAssets(ctx, transactions[i].UserID, transactions[i].CardID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
+			err = td.assetDao.DeductFreezeAssets(ctx, transactions[i].UserID, transactions[i].WalletID, transactions[i].CategoryID, transactions[i].Currency, transactions[i].Amount, allowNeg)
 		default:
-			return utils.NewBusinessError(ctx, common.CODE_NO_SUCH_TRANSACTION_TYPE)
+			return td.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_TRANSACTION_TYPE)
 		}
 		if err != nil {
 			return err
@@ -91,16 +96,9 @@ func (td *AssetTransactionDao) saveBill(ctx context.Context, transaction *AssetT
 
 	var asset *Asset
 	var err error
-	if common.IsSystemAccount(transaction.UserID) {
-		asset, err = td.assetDao.GetByUserIDCurrency(ctx, transaction.UserID, transaction.Currency)
-		if err != nil {
-			return err
-		}
-	} else {
-		asset, err = td.assetDao.GetByUserIDCategoryIDCardID(ctx, transaction.UserID, transaction.CategoryID, transaction.CardID)
-		if err != nil {
-			return err
-		}
+	asset, err = td.assetDao.GetByUserIDCategoryIDCardID(ctx, transaction.UserID, transaction.CategoryID, transaction.WalletID)
+	if err != nil {
+		return err
 	}
 
 	bill := &Bill{

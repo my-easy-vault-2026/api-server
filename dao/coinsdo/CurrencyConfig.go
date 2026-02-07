@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -44,13 +43,14 @@ type CurrencyConfigQuery struct {
 }
 
 type CurrencyConfigDao struct {
-	db    infra.Database
-	env   *lib.Env
-	redis infra.Redis
+	db        infra.Database
+	env       *lib.Env
+	redis     infra.Redis
+	beBuilder *lib.BEBuilder
 }
 
-func NewCurrencyConfigDao(db infra.Database, env *lib.Env, redis infra.Redis) *CurrencyConfigDao {
-	return &CurrencyConfigDao{db: db, env: env, redis: redis}
+func NewCurrencyConfigDao(db infra.Database, env *lib.Env, redis infra.Redis, beBuilder *lib.BEBuilder) *CurrencyConfigDao {
+	return &CurrencyConfigDao{db: db, env: env, redis: redis, beBuilder: beBuilder}
 }
 
 func (cc *CurrencyConfigDao) WithTx(tx *gorm.DB) *CurrencyConfigDao {
@@ -63,64 +63,7 @@ func (cc *CurrencyConfigDao) WithTx(tx *gorm.DB) *CurrencyConfigDao {
 }
 
 func (CurrencyConfig) TableName() string {
-	return "crypto_currency"
-}
-
-func (cc *CurrencyConfigDao) GetCurrencyConfig(ctx context.Context, mainnet common.Mainnet, currency string) (*CurrencyConfig, error) {
-	result := &CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					Mainnet:        mainnet,
-					CurrencyName:   currency,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
-				},
-			})).First(result)
-	},
-		func(tx *gorm.DB) (*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) GetCryptoTypeCurrencies(ctx context.Context) ([]*CurrencyConfig, error) {
-	result := []*CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					Type:           common.ASSET_TYPE_CRYPTO,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
-				},
-			})).Scan(&result)
-	},
-		func(tx *gorm.DB) ([]*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
+	return "currency_config"
 }
 
 func (cc *CurrencyConfigDao) GetCryptoCurrencies(ctx context.Context) ([]*CurrencyConfig, error) {
@@ -132,7 +75,7 @@ func (cc *CurrencyConfigDao) GetCryptoCurrencies(ctx context.Context) ([]*Curren
 			Model(&CurrencyConfig{}).
 			Scopes(cc.queryChain(&CurrencyConfigQuery{
 				CurrencyConfig: CurrencyConfig{
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
+					CurrencyStatus: common.CURRENCY_CONFIG_STATUS_ON,
 				},
 			})).Scan(&result)
 	},
@@ -145,14 +88,14 @@ func (cc *CurrencyConfigDao) GetCryptoCurrencies(ctx context.Context) ([]*Curren
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CurrencyConfigDao) ListByType(ctx context.Context, t common.AssetType) ([]*CurrencyConfig, error) {
 	if t == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, cc.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := []*CurrencyConfig{}
@@ -164,7 +107,7 @@ func (cc *CurrencyConfigDao) ListByType(ctx context.Context, t common.AssetType)
 			Scopes(cc.queryChain(&CurrencyConfigQuery{
 				CurrencyConfig: CurrencyConfig{
 					Type:           t,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
+					CurrencyStatus: common.CURRENCY_CONFIG_STATUS_ON,
 				},
 			})).Scan(&result)
 	},
@@ -177,143 +120,14 @@ func (cc *CurrencyConfigDao) ListByType(ctx context.Context, t common.AssetType)
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) GetCurrencyConfigByCurrencyType(ctx context.Context, currency common.Currency) (*CurrencyConfig, error) {
-	result := &CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					CurrencyType: currency,
-				},
-			})).First(result)
-	},
-		func(tx *gorm.DB) (*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) GetByMainnetProtocolCurrencyType(ctx context.Context, mainnet common.Mainnet, protocol common.Protocol, currency common.Currency) (*CurrencyConfig, error) {
-
-	if mainnet == 0 || currency == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					Mainnet:        mainnet,
-					Protocol:       protocol,
-					CurrencyType:   currency,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
-				},
-			})).First(result)
-	},
-		func(tx *gorm.DB) (*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) GetByMainnetCurrency(ctx context.Context, mainnet common.Mainnet, currency common.Currency) (*CurrencyConfig, error) {
-
-	if mainnet == 0 || currency == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					Mainnet:        mainnet,
-					CurrencyType:   currency,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
-				},
-			})).First(result)
-	},
-		func(tx *gorm.DB) (*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) GetByMainnet(ctx context.Context, mainnet common.Mainnet) (*CurrencyConfig, error) {
-
-	if mainnet == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				CurrencyConfig: CurrencyConfig{
-					Mainnet:        mainnet,
-					CurrencyStatus: common.CRYPTO_CURRENCY_STATUS_ON,
-				},
-			})).First(result)
-	},
-		func(tx *gorm.DB) (*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
 
 func (cc *CurrencyConfigDao) ListByCurrencies(ctx context.Context, currencies []common.Currency) ([]*CurrencyConfig, error) {
 	if len(currencies) == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, cc.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := []*CurrencyConfig{}
 	db := cc.db.WithContext(ctx)
@@ -336,7 +150,7 @@ func (cc *CurrencyConfigDao) ListByCurrencies(ctx context.Context, currencies []
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }
@@ -364,35 +178,7 @@ func (cc *CurrencyConfigDao) ListDisplayDecimalsByDistCurrencies(ctx context.Con
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
-		})
-}
-
-func (cc *CurrencyConfigDao) ListMainnetNames(ctx context.Context) ([]*CurrencyConfig, error) {
-
-	result := []*CurrencyConfig{}
-	db := cc.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, cc.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(&CurrencyConfig{}).
-			Scopes(cc.queryChain(&CurrencyConfigQuery{
-				Select:  []string{"mainnet", "MAX(`mainnet_full_name`) AS `mainnet_full_name`"},
-				GroupBy: "mainnet",
-			})).
-			Scan(&result)
-	},
-		func(tx *gorm.DB) ([]*CurrencyConfig, error) {
-			if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			if tx.Error != nil {
-				return nil, tx.Error
-			}
-			return result, nil
-		}, &infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: cc.env.L2CacheExpire,
 		})
 }

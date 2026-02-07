@@ -1,7 +1,6 @@
 package web
 
 import (
-	cardDao "api-server/dao/card"
 	"api-server/lib"
 	"api-server/services"
 	"net/http"
@@ -60,7 +59,7 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 		return
 	}
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		oh.logger.Error("no X-Uid")
 		oh.httpRes.ReError(c, http.StatusBadRequest, oh.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))
@@ -104,16 +103,6 @@ func (oh *OrderHandler) PageTransactionRecords(c *gin.Context) {
 	for _, record := range records {
 		walletIDs = append(walletIDs, record.FromWalletID)
 		walletIDs = append(walletIDs, record.ToWalletID)
-	}
-
-	wallets, err := oh.walletService.ListWalletByUserIDWalletID(c, userID, walletIDs)
-	if err != nil {
-		oh.httpRes.ReError(c, http.StatusBadRequest, err)
-		return
-	}
-	walletMap := make(map[uint64]*cardDao.Card)
-	for _, wallet := range wallets {
-		walletMap[wallet.ID] = wallet
 	}
 
 	recordsCopy := make([]*entities.TransactionRecordVO, len(records))

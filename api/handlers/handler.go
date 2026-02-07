@@ -22,5 +22,4 @@ var Module = fx.Options(
 
 	fx.Provide(test.NewTestHandler),
 	fx.Provide(test.NewAccountHandler),
-	fx.Provide(test.NewCardHandler),
 )

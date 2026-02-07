@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -85,14 +84,14 @@ type TransactionRecordQuery struct {
 	CreatedAtFrom           time.Time
 	CreatedAtTo             time.Time
 	IsNull                  []string
-	utils.Page
+	common.Page
 }
 
 func (TransactionRecord) TableName() string {
 	return "transaction_record"
 }
 
-func (trd *TransactionRecordDao) PageByUserIDCardID(ctx context.Context, userID uint64, cardID uint64, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
+func (trd *TransactionRecordDao) PageByUserIDWalletID(ctx context.Context, userID uint64, walletID uint64, pageCurrent int, pageSize int) (records []*TransactionRecord, current int, size int, total int, err error) {
 	result := make([]*TransactionRecord, 0)
 	s := int64(0)
 	db := trd.db.WithContext(ctx)
@@ -101,13 +100,13 @@ func (trd *TransactionRecordDao) PageByUserIDCardID(ctx context.Context, userID 
 		Model(TransactionRecord{}).
 		Scopes(trd.queryChain(&TransactionRecordQuery{
 			TransactionRecord: TransactionRecord{
-				CardID: cardID,
-				UserID: userID,
+				WalletID: walletID,
+				UserID:   userID,
 			},
 		})).
 		Count(&s).
 		Scopes(trd.queryChain(&TransactionRecordQuery{
-			Page: utils.Page{
+			Page: common.Page{
 				Current:  pageCurrent,
 				PageSize: pageSize,
 			},

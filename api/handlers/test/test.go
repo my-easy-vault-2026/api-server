@@ -14,7 +14,7 @@ type TestHandler struct {
 
 func NewTestHandler(testService *services.TestService, logger lib.Logger) *TestHandler {
 	return &TestHandler{
-		testService: services.NewTestService(),
+		testService: testService,
 		logger:      logger,
 	}
 }

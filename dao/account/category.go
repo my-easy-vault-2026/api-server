@@ -8,9 +8,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
-	"strconv"
-	"strings"
 	"time"
 
 	"api-server/infra"
@@ -22,18 +19,12 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-type Supported struct {
-	Mainnet  common.Mainnet
-	Protocol common.Protocol
-}
-
 type Category struct {
 	ID           uint64 `gorm:"primarykey"`
 	Name         string
 	Type         common.AssetType
 	Currency     common.Currency
 	CurrencyType common.CurrencyType
-	CardType     common.CardType
 	Nation       string
 	NationCode   common.NationCode
 	CreatedAt    time.Time `gorm:"default:null"`
@@ -49,8 +40,7 @@ type CategoryQuery struct {
 	Select    []string
 	Distinct  string
 	GroupBy   string
-	HasUsages []common.CategoryUsage
-	utils.Page
+	common.Page
 }
 
 type CategoryDao struct {
@@ -74,34 +64,6 @@ func (md *CategoryDao) WithTx(tx *gorm.DB) *CategoryDao {
 	newDao := *md
 	newDao.db = infra.Database{DB: tx}
 	return &newDao
-}
-
-func (md *CategoryDao) ListByIDs(ctx context.Context, ids []uint64) ([]*Category, error) {
-	result := make([]*Category, 0)
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				IDIn: ids,
-			})).
-			Scan(&result)
-	}, func(tx *gorm.DB) ([]*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return []*Category{}, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
 }
 
 func (md *CategoryDao) GetByID(ctx context.Context, id uint64) (*Category, error) {
@@ -129,104 +91,7 @@ func (md *CategoryDao) GetByID(ctx context.Context, id uint64) (*Category, error
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) GetByPaycryptoTypeID(ctx context.Context, typeID string) (*Category, error) {
-	result := &Category{}
-	db := md.db.WithContext(ctx)
-
-	if typeID == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{
-					PaycryptoTypeID: typeID,
-				},
-			})).
-			First(result)
-	}, func(tx *gorm.DB) (*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) GetByProductId(ctx context.Context, productId string) (*Category, error) {
-	result := &Category{}
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{
-					ProductId: productId,
-				},
-			})).
-			First(result)
-	}, func(tx *gorm.DB) (*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) GetByCardType(ctx context.Context, cardType common.CardType) (*Category, error) {
-	if cardType == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &Category{}
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{
-					CardType: cardType,
-				},
-			})).
-			First(result)
-	}, func(tx *gorm.DB) (*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
@@ -235,34 +100,10 @@ func (md *CategoryDao) List(ctx context.Context) ([]*Category, error) {
 	result := make([]*Category, 0)
 	db := md.db.WithContext(ctx)
 
-	err := db.
-		Model(Category{}).
-		Scopes(md.queryChain(&CategoryQuery{})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Category{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (md *CategoryDao) GetFiatList(ctx context.Context) ([]*Category, error) {
-	result := make([]*Category, 0)
-	db := md.db.WithContext(ctx)
-
 	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{
-					Type: common.ASSET_TYPE_FIAT,
-				},
-			})).
+			Scopes(md.queryChain(&CategoryQuery{})).
 			Scan(&result)
 	}, func(tx *gorm.DB) ([]*Category, error) {
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
@@ -276,39 +117,7 @@ func (md *CategoryDao) GetFiatList(ctx context.Context) ([]*Category, error) {
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) GetReapPhysical(ctx context.Context) ([]*Category, error) {
-	result := make([]*Category, 0)
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{
-					Type:   common.ASSET_TYPE_CARD_PRODUCT,
-					Vendor: common.CARD_PRODUCT_VENDOR_REAP,
-					Format: common.CARD_FORMAT_PHYSICAL,
-				},
-			})).
-			Scan(&result)
-	}, func(tx *gorm.DB) ([]*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return []*Category{}, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: md.env.L2CacheExpire,
 		})
 }
@@ -334,89 +143,9 @@ func (md *CategoryDao) Gets(ctx context.Context, query *CategoryQuery) ([]*Categ
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
+			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
 			ExpireSeconds: md.env.L2CacheExpire,
 		})
-}
-
-func (md *CategoryDao) ListByType(ctx context.Context, t common.AssetType) ([]*Category, error) {
-	result := make([]*Category, 0)
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category: Category{Type: t},
-			})).
-			Scan(&result)
-	}, func(tx *gorm.DB) ([]*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return []*Category{}, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) ListByTypeUsage(ctx context.Context, t common.AssetType, usages []common.CategoryUsage) ([]*Category, error) {
-	result := make([]*Category, 0)
-	db := md.db.WithContext(ctx)
-
-	return infra.L2CQuery(ctx, db, md.redis, func(tx *gorm.DB) *gorm.DB {
-		return tx.
-			Model(Category{}).
-			Scopes(md.queryChain(&CategoryQuery{
-				Category:  Category{Type: t},
-				HasUsages: usages,
-			})).
-			Scan(&result)
-	}, func(tx *gorm.DB) ([]*Category, error) {
-		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
-			return []*Category{}, nil
-		}
-
-		if tx.Error != nil {
-			return nil, tx.Error
-		}
-
-		return result, nil
-	},
-		&infra.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
-		})
-}
-
-func (md *CategoryDao) ExtractSupported(ctx context.Context, category *Category) ([]*Supported, error) {
-	result := make([]*Supported, 0, 10)
-	if category.Supported == "" {
-		return result, nil
-	}
-
-	mpArr := strings.Split(category.Supported, ",")
-	for _, mpStr := range mpArr {
-		strs := strings.Split(mpStr, "_")
-		protocol := 0
-		if len(strs) > 1 {
-			protocol, _ = strconv.Atoi(strs[1])
-		}
-		mainnet, _ := strconv.Atoi(strs[0])
-		mp := &Supported{
-			Mainnet:  common.Mainnet(mainnet),
-			Protocol: common.Protocol(protocol),
-		}
-		result = append(result, mp)
-	}
-	return result, nil
 }
 
 func (md *CategoryDao) Save(ctx context.Context, model *Category) (uint64, error) {
@@ -566,10 +295,6 @@ func (ad *CategoryDao) queryChain(query *CategoryQuery) func(db *gorm.DB) *gorm.
 
 		if query.IDIn != nil {
 			db.Scopes(ad.inScope("id", query.IDIn))
-		}
-
-		if len(query.HasUsages) > 0 {
-			db.Scopes(ad.hasScope("usage", query.HasUsages))
 		}
 
 		return db

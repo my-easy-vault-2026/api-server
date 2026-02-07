@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
 
 	"api-server/infra"
@@ -45,7 +44,7 @@ type TransferOrderQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	StatusIn  []common.TransferStatus
-	utils.Page
+	common.Page
 }
 type TransferOrderDao struct {
 	db  infra.Database

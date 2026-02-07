@@ -82,7 +82,7 @@ func (ah *AuthHandler) LoginOrRegister(c *gin.Context) {
 // @Router			/web/user/logout [post]
 func (ah *AuthHandler) Logout(c *gin.Context) {
 
-	userIDAny, ok := c.Get(common.HEADER_X_UID)
+	userIDAny, ok := c.Get(common.CTX_KEY_AUTH_UID)
 	if !ok {
 		ah.logger.Error("no X-Uid")
 		ah.httpRes.ReError(c, http.StatusBadRequest, ah.beBuilder.NewBusinessError(c, common.CODE_SYSTEM_ERROR))

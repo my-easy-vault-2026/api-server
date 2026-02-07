@@ -23,10 +23,9 @@ import (
 type Group struct {
 	ID           uint64
 	Name         string
-	Description  string            `gorm:"default:null"`
-	Role         common.Role       `gorm:"default:null"`
-	Level        common.AdminLevel `gorm:"default:null"`
-	ExclusiveIDs string            `gorm:"default:null"`
+	Description  string      `gorm:"default:null"`
+	Role         common.Role `gorm:"default:null"`
+	ExclusiveIDs string      `gorm:"default:null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -36,16 +35,17 @@ type GroupQuery struct {
 	Attrs     Group
 	ForUpdate bool
 	ForShare  bool
-	utils.Page
+	common.Page
 }
 
 type GroupDao struct {
-	db  infra.Database
-	env *lib.Env
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewGroupDao(db infra.Database, env *lib.Env) *GroupDao {
-	return &GroupDao{db: db, env: env}
+func NewGroupDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *GroupDao {
+	return &GroupDao{db: db, env: env, beBuilder: beBuilder}
 }
 
 func (gd *GroupDao) WithTx(tx *gorm.DB) *GroupDao {
@@ -63,7 +63,7 @@ func (Group) TableName() string {
 
 func (gd *GroupDao) GetByID(ctx context.Context, id uint64) (*Group, error) {
 	if id == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, gd.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := &Group{}
