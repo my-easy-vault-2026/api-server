@@ -38,7 +38,7 @@ func (be *BEBuilder) WrapBusinessError(ctx context.Context, err error) *Business
 
 func (be *BEBuilder) GetErrorMsg(ctx context.Context, code int, lang string) (msg string) {
 	if lang == "" {
-		lang = strings.ToLower(fmt.Sprint(ctx.Value(common.HEADER_ACCEPT_LANGUAGED)))
+		lang = strings.ToLower(fmt.Sprint(ctx.Value(common.CTX_KEY_LANGUAGE)))
 	}
 	bundle, ok := be.i18.Bundles[lang]
 	if !ok || lang == "" {
@@ -75,7 +75,7 @@ func (be *BEBuilder) NewBusinessError(ctx context.Context, code int, msg ...stri
 		return NewBusinessError(code, msg[0])
 	}
 
-	lang := strings.ToLower(fmt.Sprint(ctx.Value(common.HEADER_ACCEPT_LANGUAGED)))
+	lang := strings.ToLower(fmt.Sprint(ctx.Value(common.CTX_KEY_LANGUAGE)))
 	bundle, ok := be.i18.Bundles[lang]
 	if !ok || lang == "" {
 		bundle = be.i18.Bundles["en"]

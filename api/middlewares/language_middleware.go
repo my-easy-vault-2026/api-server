@@ -3,6 +3,7 @@ package middlewares
 import (
 	"api-server/infra"
 	"api-server/lib"
+	"shared-modules/common"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -49,8 +50,10 @@ func (lm *LanguageMiddleware) Handle() gin.HandlerFunc {
 
 		if len(matchLang) > 0 {
 			c.Request.Header.Set("Accept-Language", matchLang[0])
+			c.Set(common.CTX_KEY_LANGUAGE, matchLang[0])
 		} else {
 			c.Request.Header.Set("Accept-Language", "en")
+			c.Set(common.CTX_KEY_LANGUAGE, "en")
 		}
 		c.Next()
 	}
