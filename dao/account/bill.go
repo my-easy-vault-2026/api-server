@@ -21,19 +21,19 @@ import (
 )
 
 type Bill struct {
-	ID                   uint64
-	UserID               uint64
-	AssetID              uint64
-	OrderNo              string
-	Amount               decimal.Decimal
-	CurrentAmount        decimal.Decimal
-	CurrentFreezedAmount decimal.Decimal
-	Currency             common.Currency
-	TransactionType      common.TransactionType
-	BillType             common.BillType
-	OrderType            common.TransactionRecordType
-	CreatedAt            time.Time `gorm:"default:null"`
-	UpdatedAt            time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID                  uint64
+	UserID              uint64
+	AssetID             uint64
+	OrderNo             string
+	Amount              decimal.Decimal
+	CurrentAmount       decimal.Decimal
+	CurrentFrozenAmount decimal.Decimal
+	Currency            common.Currency
+	TransactionType     common.TransactionType
+	BillType            common.BillType
+	OrderType           common.TransactionRecordType
+	CreatedAt           time.Time `gorm:"default:null"`
+	UpdatedAt           time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type BillQuery struct {

@@ -32,8 +32,6 @@ type Card struct {
 	NationCode   common.NationCode   `gorm:"default:null"`
 	Nation       string              `gorm:"default:null"`
 	Status       common.CardStatus
-	FrozenAt     time.Time `gorm:"default:null"`
-	BlockedAt    time.Time `gorm:"default:null"`
 	DeletedAt    time.Time `gorm:"default:null"`
 	CreatedAt    time.Time `gorm:"default:null"`
 	UpdatedAt    time.Time `gorm:"default:null;autoUpdateTime:false"`

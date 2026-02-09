@@ -102,16 +102,16 @@ func (td *AssetTransactionDao) saveBill(ctx context.Context, transaction *AssetT
 	}
 
 	bill := &Bill{
-		UserID:               transaction.UserID,
-		OrderNo:              transaction.OrderNO,
-		AssetID:              asset.ID,
-		Amount:               transaction.Amount,
-		CurrentAmount:        asset.Amount,
-		CurrentFreezedAmount: asset.FreezedAmount,
-		Currency:             transaction.Currency,
-		TransactionType:      transaction.TransactionType,
-		BillType:             transaction.BillType,
-		OrderType:            orderType,
+		UserID:              transaction.UserID,
+		OrderNo:             transaction.OrderNO,
+		AssetID:             asset.ID,
+		Amount:              transaction.Amount,
+		CurrentAmount:       asset.Amount,
+		CurrentFrozenAmount: asset.FrozenAmount,
+		Currency:            transaction.Currency,
+		TransactionType:     transaction.TransactionType,
+		BillType:            transaction.BillType,
+		OrderType:           orderType,
 	}
 
 	_, err = td.billDao.Save(ctx, bill)

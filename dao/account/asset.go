@@ -22,18 +22,17 @@ import (
 )
 
 type Asset struct {
-	ID            uint64
-	CategoryID    uint64
-	Type          common.AssetType
-	UserID        uint64
-	Currency      common.Currency
-	CurrencyType  common.CurrencyType
-	Amount        decimal.Decimal
-	FreezedAmount decimal.Decimal
-	Signature     string
-	DeletedAt     time.Time `gorm:"default:null"`
-	CreatedAt     time.Time `gorm:"default:null"`
-	UpdatedAt     time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID           uint64
+	CategoryID   uint64
+	Type         common.AssetType
+	UserID       uint64
+	Currency     common.Currency
+	CurrencyType common.CurrencyType
+	Amount       decimal.Decimal
+	FrozenAmount decimal.Decimal
+	DeletedAt    time.Time `gorm:"default:null"`
+	CreatedAt    time.Time `gorm:"default:null"`
+	UpdatedAt    time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type AssetQuery struct {
