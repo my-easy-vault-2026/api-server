@@ -21,7 +21,7 @@ type WebsocketHandler struct {
 	websocketService *services.WebsocketService
 	logger           lib.Logger
 	redis            infra.Redis
-	wsServer         infra.WsServer
+	wsServer         *infra.WsServer
 	beBuilder        *lib.BEBuilder
 	httpRes          *lib.HttpRes
 }
@@ -29,7 +29,7 @@ type WebsocketHandler struct {
 func NewWebsocketHandler(websockerService *services.WebsocketService,
 	logger lib.Logger,
 	redis infra.Redis,
-	wsServer infra.WsServer,
+	wsServer *infra.WsServer,
 	beBuilder *lib.BEBuilder,
 	httpRes *lib.HttpRes,
 ) *WebsocketHandler {

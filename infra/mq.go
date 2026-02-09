@@ -21,13 +21,15 @@ type MQ struct {
 	env      *lib.Env
 }
 
-func NewMQ(ctx context.Context, rds Redis, logger lib.Logger, env *lib.Env) (*MQ, error) {
+func NewMQ(rds Redis, logger lib.Logger, env *lib.Env) (*MQ, error) {
 	mq := &MQ{
 		redis:    rds,
 		handlers: make(map[common.MsgOPCode]func(context.Context, *common.Msg) error),
 		logger:   logger,
 		env:      env,
 	}
+
+	ctx := context.Background()
 
 	var err error
 	var lists, pubsubs []string
@@ -36,7 +38,6 @@ func NewMQ(ctx context.Context, rds Redis, logger lib.Logger, env *lib.Env) (*MQ
 
 	for _, l := range lists {
 		go func() {
-			ctx := context.WithValue(ctx, "reqId", "mq-"+l)
 			for {
 				var result []string
 				result, err = mq.redis.BRPop(ctx, 1000, l).Result()
@@ -56,7 +57,6 @@ func NewMQ(ctx context.Context, rds Redis, logger lib.Logger, env *lib.Env) (*MQ
 
 	for _, p := range pubsubs {
 		go func() {
-			ctx := context.WithValue(ctx, "reqId", "mq-"+p)
 			subscriber := mq.redis.Subscribe(ctx, p)
 			for {
 				msg, err := subscriber.ReceiveMessage(ctx)

@@ -23,8 +23,8 @@ type Lockers struct {
 	redis  Redis
 }
 
-func NewLockers(logger lib.Logger, redis Redis) *Lockers {
-	return &Lockers{logger: logger, redis: redis}
+func NewLockers(logger lib.Logger, redis Redis) Lockers {
+	return Lockers{logger: logger, redis: redis}
 }
 
 func (l *Lockers) NewLocker() *Locker {

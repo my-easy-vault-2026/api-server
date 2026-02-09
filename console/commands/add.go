@@ -16,8 +16,8 @@ func (r *AddCommand) Short() string {
 }
 
 func (r *AddCommand) Setup(cmd *cobra.Command) {
-	cmd.Flags().IntVarP(&r.num1, "num1", "n1", 0, "first number to add")
-	cmd.Flags().IntVarP(&r.num2, "num2", "n2", 0, "second number to add")
+	cmd.Flags().IntVarP(&r.num1, "num1", "a", 0, "first number to add")
+	cmd.Flags().IntVarP(&r.num2, "num2", "b", 0, "second number to add")
 }
 
 func (r *AddCommand) Run() lib.CommandRunner {

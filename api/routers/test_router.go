@@ -3,13 +3,14 @@ package routers
 import (
 	"api-server/api/handlers/test"
 	middleware "api-server/api/middlewares"
+	"api-server/infra"
 	"api-server/lib"
 
-	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 type TestRouter struct {
-	r                      *gin.Engine `name:"api"`
+	apiRouter              infra.Router `name:"api"`
 	apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare
 	env                    *lib.Env
 	logger                 lib.Logger
@@ -17,13 +18,28 @@ type TestRouter struct {
 	testHandler            *test.TestHandler
 }
 
+type TestRouterParams struct {
+	fx.In
+	ApiRouter              infra.Router `name:"api"`
+	ApiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare
+	Env                    *lib.Env
+	Logger                 lib.Logger
+	AccountHandler         *test.AccountHandler
+	TestHandler            *test.TestHandler
+}
+
 var _ IRouter = (*TestRouter)(nil)
 
-func NewTestRouter(r *gin.Engine, apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare, logger lib.Logger) *TestRouter {
+func NewTestRouter(
+	p TestRouterParams,
+) *TestRouter {
 	return &TestRouter{
-		r:                      r,
-		apiAuthorityMiddleWare: apiAuthorityMiddleWare,
-		logger:                 logger,
+		apiRouter:              p.ApiRouter,
+		apiAuthorityMiddleWare: p.ApiAuthorityMiddleWare,
+		logger:                 p.Logger,
+		accountHandler:         p.AccountHandler,
+		testHandler:            p.TestHandler,
+		env:                    p.Env,
 	}
 }
 
@@ -31,7 +47,7 @@ func (tr *TestRouter) Setup() {
 
 	if tr.env.Environment == "local" ||
 		tr.env.Environment == "dev" {
-		t := tr.r.Group("/test")
+		t := tr.apiRouter.Group("/test")
 		{
 
 			t.POST("/account/addAssets", tr.accountHandler.AddAssets)

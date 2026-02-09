@@ -12,6 +12,10 @@ type MQs struct {
 	transferHandler *TransferHandler
 }
 
+type IMQ interface {
+	Setup()
+}
+
 var Module = fx.Options(
 	fx.Provide(NewTransferHandler),
 	fx.Provide(NewMQs),

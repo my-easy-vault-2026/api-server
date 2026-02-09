@@ -7,7 +7,9 @@ import (
 	"api-server/dao"
 	"api-server/infra"
 	"api-server/lib"
+	"api-server/mq"
 	"api-server/services"
+	"api-server/workers"
 
 	"go.uber.org/fx"
 )
@@ -20,4 +22,6 @@ var CommonModules = fx.Options(
 	infra.Module,
 	middlewares.Module,
 	lib.Module,
+	mq.Module,
+	workers.Module,
 )

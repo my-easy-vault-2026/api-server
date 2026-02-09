@@ -5,14 +5,31 @@ import (
 	"api-server/api/routers"
 	"api-server/infra"
 	"api-server/lib"
+	"api-server/mq"
+	"api-server/workers"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"
+	"go.uber.org/fx"
 )
 
 // ServeCommand test command
-type ServeCommand struct{}
+type ServeCommand struct {
+}
+
+type ServeCommandParams struct {
+	fx.In
+	Middleware      middlewares.Middlewares
+	Env             *lib.Env
+	ApiRouter       infra.Router `name:"api"`
+	WebsocketRouter infra.Router `name:"websocket"`
+	Route           routers.Routers
+	Logger          lib.Logger
+	Database        infra.Database
+	Mq              *mq.MQs
+	Workers         *workers.Workers
+}
 
 func (s *ServeCommand) Short() string {
 	return "serve application"
@@ -22,44 +39,53 @@ func (s *ServeCommand) Setup(cmd *cobra.Command) {}
 
 func (s *ServeCommand) Run() lib.CommandRunner {
 	return func(
-		middleware middlewares.Middlewares,
-		env *lib.Env,
-		router infra.Router,
-		route routers.Routers,
-		logger lib.Logger,
-		database infra.Database,
-
+		p ServeCommandParams,
 	) {
-		logger.Info(`+-----------------------+`)
-		logger.Info(`| EASY VAULT API SERVER |`)
-		logger.Info(`+-----------------------+`)
+		p.Logger.Info(`+-----------------------+`)
+		p.Logger.Info(`| EASY VAULT API SERVER |`)
+		p.Logger.Info(`+-----------------------+`)
 
 		// Using time zone as specified in env file
-		loc, _ := time.LoadLocation(env.TimeZone)
+		loc, _ := time.LoadLocation(p.Env.TimeZone)
 		time.Local = loc
 
-		middleware.Setup()
-		route.Setup()
+		p.Middleware.Setup()
+		p.Route.Setup()
+		p.Mq.Setup()
+		p.Workers.Setup()
 
-		if env.Environment != "local" && env.SentryDSN != "" {
+		if p.Env.Environment != "local" && p.Env.SentryDSN != "" {
 			err := sentry.Init(sentry.ClientOptions{
-				Dsn:              env.SentryDSN,
+				Dsn:              p.Env.SentryDSN,
 				AttachStacktrace: true,
 			})
 			if err != nil {
-				logger.Error("sentry initialization failed")
-				logger.Error(err.Error())
+				p.Logger.Error("sentry initialization failed")
+				p.Logger.Error(err.Error())
 			}
 		}
-		logger.Info("Running server")
-		if env.ServerPort == "" {
-			if err := router.Run(); err != nil {
-				logger.Fatal(err)
+		p.Logger.Info("Running server")
+		if p.Env.ServerPort == "" {
+			if err := p.ApiRouter.Run(); err != nil {
+				p.Logger.Fatal(err)
 				return
 			}
 		} else {
-			if err := router.Run(":" + env.ServerPort); err != nil {
-				logger.Fatal(err)
+			if err := p.ApiRouter.Run(":" + p.Env.ServerPort); err != nil {
+				p.Logger.Fatal(err)
+				return
+			}
+		}
+
+		p.Logger.Info("Running webocket server")
+		if p.Env.WSServerPort == "" {
+			if err := p.WebsocketRouter.Run(); err != nil {
+				p.Logger.Fatal(err)
+				return
+			}
+		} else {
+			if err := p.WebsocketRouter.Run(":" + p.Env.WSServerPort); err != nil {
+				p.Logger.Fatal(err)
 				return
 			}
 		}

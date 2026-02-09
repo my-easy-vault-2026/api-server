@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"api-server/infra"
 	"api-server/lib"
 	"api-server/utils"
 	"net/http"
@@ -8,22 +9,41 @@ import (
 	"shared-modules/common"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 type RecoverMiddleWare struct {
-	logger    lib.Logger
-	beBuilder *lib.BEBuilder
-	httpRes   *lib.HttpRes
+	logger          lib.Logger
+	beBuilder       *lib.BEBuilder
+	httpRes         *lib.HttpRes
+	APIRouter       infra.Router `name:"api"`
+	WebsocketRouter infra.Router `name:"websocket"`
 }
 
-func NewRecoverMiddleWare(logger lib.Logger,
-	beBuilder *lib.BEBuilder,
-	httpRes *lib.HttpRes) *RecoverMiddleWare {
+type RecoverMiddleWareParams struct {
+	fx.In
+	Logger          lib.Logger
+	BEBuilder       *lib.BEBuilder
+	HTTPRes         *lib.HttpRes
+	APIRouter       infra.Router `name:"api"`
+	WebsocketRouter infra.Router `name:"websocket"`
+}
+
+func NewRecoverMiddleWare(
+	p RecoverMiddleWareParams,
+) *RecoverMiddleWare {
 	return &RecoverMiddleWare{
-		logger:    logger,
-		beBuilder: beBuilder,
-		httpRes:   httpRes,
+		logger:          p.Logger,
+		beBuilder:       p.BEBuilder,
+		httpRes:         p.HTTPRes,
+		APIRouter:       p.APIRouter,
+		WebsocketRouter: p.WebsocketRouter,
 	}
+}
+
+func (rm *RecoverMiddleWare) Setup() {
+	rm.APIRouter.Use(rm.Handle())
+	rm.WebsocketRouter.Use(rm.Handle())
 }
 
 func (rm *RecoverMiddleWare) Handle() gin.HandlerFunc {

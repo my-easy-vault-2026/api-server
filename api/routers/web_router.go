@@ -3,15 +3,17 @@ package routers
 import (
 	"api-server/api/handlers/web"
 	middleware "api-server/api/middlewares"
+	"api-server/infra"
 	"api-server/lib"
 
-	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 type WebRouter struct {
-	r                      *gin.Engine `name:"api"`
-	rw                     *gin.Engine `name:"websocket"`
+	apiRouter              infra.Router `name:"api"`
+	websocketRouter        infra.Router `name:"websocket"`
 	apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare
+	rateLimitMiddleWare    *middleware.RateLimitMiddleWare
 	logger                 lib.Logger
 	authHandler            *web.AuthHandler
 	userHandler            *web.UserHandler
@@ -25,44 +27,53 @@ type WebRouter struct {
 	appVersionLib          *lib.APPVersionLib
 }
 
+type WebRouterParams struct {
+	fx.In
+	ApiRouter              infra.Router `name:"api"`
+	WebsocketRouter        infra.Router `name:"websocket"`
+	ApiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare
+	RatelimitMiddleware    *middleware.RateLimitMiddleWare
+	Logger                 lib.Logger
+	AuthHandler            *web.AuthHandler
+	UserHandler            *web.UserHandler
+	QuoteHandler           *web.QuoteHandler
+	WalletHandler          *web.WalletHandler
+	OrderHandler           *web.OrderHandler
+	TransferHandler        *web.TransferHandler
+	CommonHandler          *web.CommonHandler
+	ExchangeHandler        *web.ExchangeHandler
+	WebsocketHandler       *web.WebsocketHandler
+	AppVersionLib          *lib.APPVersionLib
+}
+
 var _ IRouter = (*WebRouter)(nil)
 
-func NewWebRouter(r *gin.Engine,
-	rw *gin.Engine,
-	apiAuthorityMiddleWare *middleware.ApiAuthorityMiddleWare,
-	logger lib.Logger,
-	authHandler *web.AuthHandler,
-	userHandler *web.UserHandler,
-	quoteHandler *web.QuoteHandler,
-	walletHandler *web.WalletHandler,
-	orderHandler *web.OrderHandler,
-	transferHandler *web.TransferHandler,
-	commonHandler *web.CommonHandler,
-	exchangeHandler *web.ExchangeHandler,
-	websocketHandler *web.WebsocketHandler,
-	appVersionLib *lib.APPVersionLib,
+func NewWebRouter(
+	p WebRouterParams,
 ) *WebRouter {
 	return &WebRouter{
-		r:                      r,
-		rw:                     rw,
-		apiAuthorityMiddleWare: apiAuthorityMiddleWare,
-		logger:                 logger,
-		authHandler:            authHandler,
-		userHandler:            userHandler,
-		quoteHandler:           quoteHandler,
-		walletHandler:          walletHandler,
-		orderHandler:           orderHandler,
-		transferHandler:        transferHandler,
-		commonHandler:          commonHandler,
-		exchangeHandler:        exchangeHandler,
-		websocketHandler:       websocketHandler,
-		appVersionLib:          appVersionLib,
+		apiRouter:              p.ApiRouter,
+		websocketRouter:        p.WebsocketRouter,
+		apiAuthorityMiddleWare: p.ApiAuthorityMiddleWare,
+		rateLimitMiddleWare:    p.RatelimitMiddleware,
+		logger:                 p.Logger,
+		authHandler:            p.AuthHandler,
+		userHandler:            p.UserHandler,
+		quoteHandler:           p.QuoteHandler,
+		walletHandler:          p.WalletHandler,
+		orderHandler:           p.OrderHandler,
+		transferHandler:        p.TransferHandler,
+		commonHandler:          p.CommonHandler,
+		exchangeHandler:        p.ExchangeHandler,
+		websocketHandler:       p.WebsocketHandler,
+		appVersionLib:          p.AppVersionLib,
 	}
 }
 
 func (wr *WebRouter) Setup() {
 
-	w := wr.r.Group("/web", wr.apiAuthorityMiddleWare.Handle())
+	w := wr.apiRouter.Group("/web") // wr.apiAuthorityMiddleWare.Handle(),
+
 	{
 		w.POST("/auth/loginOrRegister", wr.authHandler.LoginOrRegister)
 		w.POST("/auth/logout", wr.authHandler.Logout)
@@ -90,7 +101,7 @@ func (wr *WebRouter) Setup() {
 		w.POST("/transfer/confirm", wr.transferHandler.TransferConfirm)
 	}
 
-	ww := wr.rw.Group("/web", wr.apiAuthorityMiddleWare.Handle())
+	ww := wr.websocketRouter.Group("/web")
 	{
 		ww.GET("/websocket/connect/*token", wr.websocketHandler.Connect)
 	}

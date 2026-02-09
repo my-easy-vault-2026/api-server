@@ -12,7 +12,7 @@ type Redis struct {
 	*redis.Client
 }
 
-func NewRedis(logger lib.Logger, env *lib.Env) (*Redis, error) {
+func NewRedis(logger lib.Logger, env *lib.Env) (Redis, error) {
 
 	tlsConfig := (*tls.Config)(nil)
 	switch env.RedisTls {
@@ -36,7 +36,7 @@ func NewRedis(logger lib.Logger, env *lib.Env) (*Redis, error) {
 		TLSConfig: tlsConfig,
 	})
 
-	return &Redis{Client: rc}, nil
+	return Redis{Client: rc}, nil
 }
 
 func (r *Redis) PushMessage(ctx context.Context, channel string, message string) error {

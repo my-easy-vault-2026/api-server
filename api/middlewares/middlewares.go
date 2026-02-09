@@ -6,6 +6,10 @@ import "go.uber.org/fx"
 var Module = fx.Options(
 	fx.Provide(NewApiAuthorityMiddleWare),
 	fx.Provide(NewWebsocketAuthorityMiddleWare),
+	fx.Provide(NewLanguageMiddleware),
+	fx.Provide(NewTraceIdMiddleWare),
+	fx.Provide(NewRateLimitMiddleWare),
+	fx.Provide(NewRecoverMiddleWare),
 	fx.Provide(NewMiddlewares),
 )
 
@@ -19,8 +23,16 @@ type Middlewares []IMiddleware
 
 // NewMiddlewares creates new middlewares
 // Register the middleware that should be applied directly (globally)
-func NewMiddlewares() Middlewares {
-	return Middlewares{}
+func NewMiddlewares(
+	languageMiddleware *LanguageMiddleware,
+	traceIDMiddleware *TraceIdMiddleWare,
+	recoverMiddleWare *RecoverMiddleWare,
+) Middlewares {
+	return Middlewares{
+		recoverMiddleWare,
+		traceIDMiddleware,
+		languageMiddleware,
+	}
 }
 
 // Setup sets up middlewares

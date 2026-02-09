@@ -14,4 +14,7 @@ var Module = fx.Options(
 	fx.Provide(NewWalletService),
 	fx.Provide(NewWebsocketService),
 	fx.Provide(NewTestService),
+	fx.Provide(NewRateGetters),
+	fx.Provide(NewDefaultRateGetter),
+	fx.Provide(NewExchangeService),
 )

@@ -175,8 +175,8 @@ func (i *I18N) TranslateByCode(ctx context.Context, language common.Language, co
 func (i *I18N) MatchLang(header string) ([]string, error) {
 	var matcher = language.NewMatcher([]language.Tag{
 		language.English,
-		language.AmericanEnglish,
-		language.BritishEnglish,
+		// language.AmericanEnglish,
+		// language.BritishEnglish,
 		language.SimplifiedChinese,
 		language.TraditionalChinese,
 		language.Japanese,

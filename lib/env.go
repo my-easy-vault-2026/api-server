@@ -44,7 +44,10 @@ type Env struct {
 
 	L2CacheExpire time.Duration `mapstructure:"L2_CACHE_EXPIRE"`
 
-	WorkerPoolSize  int           `mapstructure:"WORKER_POOL_SIZE"`
+	WorkerPoolSize    int `mapstructure:"WORKER_POOL_SIZE"`
+	DefaultWorkerSize int `mapstructure:"DEFAULT_WORKER_SIZE"`
+
+	WSServerPort    string        `mapstructure:"WS_SERVER_PORT"`
 	BucketSize      int           `mapstructure:"BUCKET_SIZE"`
 	WriteWait       time.Duration `mapstructure:"WRITE_WAIT"`
 	PongWait        time.Duration `mapstructure:"PONG_WAIT"`

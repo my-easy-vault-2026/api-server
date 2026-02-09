@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"api-server/infra"
 	"api-server/lib"
 	"api-server/utils"
 	"bytes"
@@ -13,18 +14,37 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/fx"
 )
 
 const maxLogBody = 1 << 16 // 64KB
 
 type TraceIdMiddleWare struct {
-	logger lib.Logger
+	logger          lib.Logger
+	APIRouter       infra.Router `name:"api"`
+	WebsocketRouter infra.Router `name:"websocket"`
 }
 
-func NewTraceIdMiddleWare(logger lib.Logger) *TraceIdMiddleWare {
+type TraceIdMiddleWareParams struct {
+	fx.In
+	Logger          lib.Logger
+	APIRouter       infra.Router `name:"api"`
+	WebsocketRouter infra.Router `name:"websocket"`
+}
+
+func NewTraceIdMiddleWare(
+	p TraceIdMiddleWareParams,
+) *TraceIdMiddleWare {
 	return &TraceIdMiddleWare{
-		logger: logger,
+		logger:          p.Logger,
+		APIRouter:       p.APIRouter,
+		WebsocketRouter: p.WebsocketRouter,
 	}
+}
+
+func (tm *TraceIdMiddleWare) Setup() {
+	tm.APIRouter.Use(tm.Handle())
+	tm.WebsocketRouter.Use(tm.Handle())
 }
 
 func (tm *TraceIdMiddleWare) Handle() gin.HandlerFunc {
