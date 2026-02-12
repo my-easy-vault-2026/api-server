@@ -3,8 +3,9 @@ package mq
 import (
 	"context"
 
-	"api-server/services"
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/services"
 )
 
 type TransferHandler struct {

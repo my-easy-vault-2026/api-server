@@ -1,12 +1,14 @@
 package middlewares
 
 import (
-	authDao "api-server/dao/auth"
-	"api-server/lib"
-	"api-server/services"
 	"net/http"
-	"shared-modules/common"
 	"strconv"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	authDao "github.com/my-easy-vault-2026/api-server/dao/auth"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,14 +1,15 @@
 package commands
 
 import (
-	"api-server/api/middlewares"
-	"api-server/api/routers"
-	"api-server/infra"
-	"api-server/lib"
-	"api-server/mq"
-	"api-server/workers"
 	"sync"
 	"time"
+
+	"github.com/my-easy-vault-2026/api-server/api/middlewares"
+	"github.com/my-easy-vault-2026/api-server/api/routers"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/mq"
+	"github.com/my-easy-vault-2026/api-server/workers"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/spf13/cobra"

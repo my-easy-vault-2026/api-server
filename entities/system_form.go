@@ -1,6 +1,6 @@
 package entities
 
-import "shared-modules/common"
+import "github.com/my-easy-vault-2026/shared-modules/common"
 
 // SystemParameterForm represents the form data for creating or updating a system parameter.
 type ListSystemParametersForm struct {

@@ -1,10 +1,10 @@
 package routers
 
 import (
-	"api-server/api/handlers/web"
-	middleware "api-server/api/middlewares"
-	"api-server/infra"
-	"api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/api/handlers/web"
+	middleware "github.com/my-easy-vault-2026/api-server/api/middlewares"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"go.uber.org/fx"
 )

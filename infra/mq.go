@@ -1,8 +1,6 @@
 package infra
 
 import (
-	"api-server/lib"
-	"api-server/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,9 +8,12 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/utils"
+
 	"github.com/redis/go-redis/v9"
 
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
 )
 
 type MQ struct {

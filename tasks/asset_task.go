@@ -1,8 +1,8 @@
 package tasks
 
 import (
-	"api-server/lib"
-	"api-server/services"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 )
 
 // 定时任务由gocron 服务通过定时调用http接口来实现 定时任务url前缀为/tasks/xxx

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,9 +1,10 @@
 package infra
 
 import (
-	"api-server/lib"
-	"api-server/utils"
 	"net/http"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/utils"
 
 	"github.com/getsentry/sentry-go"
 	sentrygin "github.com/getsentry/sentry-go/gin"

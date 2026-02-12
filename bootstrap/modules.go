@@ -1,15 +1,15 @@
 package bootstrap
 
 import (
-	"api-server/api/handlers"
-	"api-server/api/middlewares"
-	"api-server/api/routers"
-	"api-server/dao"
-	"api-server/infra"
-	"api-server/lib"
-	"api-server/mq"
-	"api-server/services"
-	"api-server/workers"
+	"github.com/my-easy-vault-2026/api-server/api/handlers"
+	"github.com/my-easy-vault-2026/api-server/api/middlewares"
+	"github.com/my-easy-vault-2026/api-server/api/routers"
+	"github.com/my-easy-vault-2026/api-server/dao"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/mq"
+	"github.com/my-easy-vault-2026/api-server/services"
+	"github.com/my-easy-vault-2026/api-server/workers"
 
 	"go.uber.org/fx"
 )

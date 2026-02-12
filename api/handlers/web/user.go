@@ -1,12 +1,14 @@
 package web
 
 import (
-	"api-server/lib"
-	"api-server/services"
 	"net/http"
-	"shared-modules/common"
-	"shared-modules/entities"
 	"strconv"
+
+	"github.com/my-easy-vault-2026/api-server/entities"
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"

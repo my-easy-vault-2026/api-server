@@ -1,8 +1,6 @@
 package infra
 
 import (
-	"api-server/lib"
-	"api-server/utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,7 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/utils"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
 
 	"github.com/gorilla/websocket"
 	"github.com/redis/go-redis/v9"

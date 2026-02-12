@@ -1,16 +1,18 @@
 package web
 
 import (
-	"api-server/infra"
-	"api-server/lib"
-	"api-server/services"
 	"context"
 	"errors"
 	"net/http"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"strconv"
 	"strings"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"

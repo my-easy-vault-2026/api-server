@@ -2,7 +2,8 @@ package infra
 
 import (
 	"fmt"
-	"shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/shared-modules/utils"
 
 	"context"
 	"encoding/json"

@@ -1,12 +1,14 @@
 package middlewares
 
 import (
-	"api-server/infra"
-	"api-server/lib"
-	"api-server/utils"
 	"net/http"
 	"runtime/debug"
-	"shared-modules/common"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/utils"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"

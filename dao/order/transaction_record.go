@@ -7,11 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
 	"time"
 
-	"api-server/infra"
-	"api-server/lib"
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"

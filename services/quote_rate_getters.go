@@ -2,7 +2,8 @@ package services
 
 import (
 	"context"
-	"shared-modules/common"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
 )
 
 type IRateGetter interface {

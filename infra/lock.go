@@ -1,11 +1,12 @@
 package infra
 
 import (
-	"api-server/lib"
 	"context"
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 )
 
 type Locker struct {

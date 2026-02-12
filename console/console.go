@@ -1,9 +1,10 @@
 package console
 
 import (
-	"api-server/console/commands"
-	"api-server/lib"
 	"context"
+
+	"github.com/my-easy-vault-2026/api-server/console/commands"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/spf13/cobra"
 	"go.uber.org/fx"

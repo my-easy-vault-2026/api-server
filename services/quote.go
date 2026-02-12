@@ -1,10 +1,12 @@
 package services
 
 import (
-	systemDao "api-server/dao/system"
-	"api-server/lib"
 	"context"
-	"shared-modules/common"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	"github.com/my-easy-vault-2026/api-server/lib"
 )
 
 type QuoteService struct {

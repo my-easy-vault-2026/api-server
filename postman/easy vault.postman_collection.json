@@ -1,0 +1,740 @@
+{
+  "info": {
+    "_postman_id": "40898053-e6c7-4c67-a2e1-ab6d40d4c021",
+    "name": "easy vault",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "28480174"
+  },
+  "item": [
+    {
+      "name": "web",
+      "item": [
+        {
+          "name": "auth",
+          "item": [
+            {
+              "name": "loginOrRegister",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.environment.set(\"timestamp\", new Date().getTime());",
+                      "",
+                      "// 生成三个随机数字，并设置为全局变量",
+                      "pm.globals.set(\"randomNum1\", _.random(0, 9));",
+                      "pm.globals.set(\"randomNum2\", _.random(0, 9));",
+                      "pm.globals.set(\"randomNum3\", _.random(0, 9));"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "// 1. 取得 Response Header 中的 x-token",
+                      "const xToken = pm.response.headers.get(\"x-token\");",
+                      "",
+                      "// 2. 檢查是否有抓到值",
+                      "if (xToken) {",
+                      "    // 3. 將其存入環境變數 (Environment Variable)",
+                      "    pm.environment.set(\"x-token\", xToken);",
+                      "    console.log(\"成功存入 x-token: \" + xToken);",
+                      "} else {",
+                      "    console.warn(\"找不到 x-token header\");",
+                      "}"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \n    \"email\": \"123@mail.com\",\n    \"pinCode\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/auth/loginOrRegister",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "auth",
+                    "loginOrRegister"
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "創建",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \n    \"email\": \"{{timestamp}}@email.com\",\n    \"pinCode\": \"123456\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "http://127.0.0.1:8081/web/auth/loginOrRegister",
+                      "protocol": "http",
+                      "host": [
+                        "127",
+                        "0",
+                        "0",
+                        "1"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "web",
+                        "auth",
+                        "loginOrRegister"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": null,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "X-Expired",
+                      "value": "-2628556684668"
+                    },
+                    {
+                      "key": "X-Token",
+                      "value": "5785420a7e5620290074bd15ce686fe2"
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Mon, 09 Feb 2026 10:22:32 GMT"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "117"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"code\": 0,\n    \"data\": {\n        \"id\": \"10881862891224969\",\n        \"email\": \"1770632552599@email.com\",\n        \"createdAt\": 0,\n        \"updatedAt\": 0\n    },\n    \"msg\": \"ok\"\n}"
+                },
+                {
+                  "name": "登入",
+                  "originalRequest": {
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\n    \n    \"email\": \"jjjj.sinrui2023@gmail.com\",\n    \"pinCode\": \"123456\"\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "http://127.0.0.1:8081/web/auth/loginOrRegister",
+                      "protocol": "http",
+                      "host": [
+                        "127",
+                        "0",
+                        "0",
+                        "1"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "web",
+                        "auth",
+                        "loginOrRegister"
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": null,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "X-Expired",
+                      "value": "-2628412510820"
+                    },
+                    {
+                      "key": "X-Token",
+                      "value": "dfa8851727f2e22a2034fd6ce02e342e"
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Wed, 11 Feb 2026 02:25:26 GMT"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "119"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"code\": 0,\n    \"data\": {\n        \"id\": \"53352743966397909\",\n        \"email\": \"jjjj.sinrui2023@gmail.com\",\n        \"createdAt\": 0,\n        \"updatedAt\": 0\n    },\n    \"msg\": \"ok\"\n}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wallet",
+          "item": [
+            {
+              "name": "wallet",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/wallet",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "wallet"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "wallet",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"categoryId\": \"2003\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/wallet",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "wallet"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "quote",
+          "item": [
+            {
+              "name": "exchangeRate",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/quote/exchangeRate/:quote/:base",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "quote",
+                    "exchangeRate",
+                    ":quote",
+                    ":base"
+                  ],
+                  "variable": [
+                    {
+                      "key": "quote",
+                      "value": "usd"
+                    },
+                    {
+                      "key": "base",
+                      "value": "jpy"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "exchange",
+          "item": [
+            {
+              "name": "preview",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "",
+                      "const key = res.data.key;",
+                      "",
+                      "pm.environment.set(\"exchange_key\", key);",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/exchange/preview?fromWalletId=200110001&toCurrency=eur&fromAmount=100",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "exchange",
+                    "preview"
+                  ],
+                  "query": [
+                    {
+                      "key": "fromWalletId",
+                      "value": "200110001"
+                    },
+                    {
+                      "key": "toCurrency",
+                      "value": "eur"
+                    },
+                    {
+                      "key": "fromAmount",
+                      "value": "100"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "confirm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"key\": \"{{exchange_key}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/exchange/confirm",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "exchange",
+                    "confirm"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "transfer",
+          "item": [
+            {
+              "name": "preview",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "const res = pm.response.json();",
+                      "",
+                      "const key = res.data.key;",
+                      "",
+                      "pm.environment.set(\"transfer_key\", key);",
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/transfer/preview?fromWalletId=2001123&toUserId=10001&fromAmount=10",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "transfer",
+                    "preview"
+                  ],
+                  "query": [
+                    {
+                      "key": "fromWalletId",
+                      "value": "2001123"
+                    },
+                    {
+                      "key": "toUserId",
+                      "value": "10001"
+                    },
+                    {
+                      "key": "fromAmount",
+                      "value": "10"
+                    },
+                    {
+                      "key": "toEmail",
+                      "value": "123@mail.com",
+                      "type": "text",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "to 123",
+                  "originalRequest": {
+                    "method": "GET",
+                    "header": [
+                      {
+                        "key": "x-token",
+                        "value": "{{x-token}}",
+                        "type": "text"
+                      },
+                      {
+                        "key": "x-app-version",
+                        "value": "1.5.0",
+                        "type": "text"
+                      }
+                    ],
+                    "url": {
+                      "raw": "http://127.0.0.1:8081/web/transfer/preview?fromWalletId=200110001&fromAmount=100&toEmail=123@mail.com",
+                      "protocol": "http",
+                      "host": [
+                        "127",
+                        "0",
+                        "0",
+                        "1"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "web",
+                        "transfer",
+                        "preview"
+                      ],
+                      "query": [
+                        {
+                          "key": "fromWalletId",
+                          "value": "200110001"
+                        },
+                        {
+                          "key": "toUserId",
+                          "value": "45504666523644687",
+                          "disabled": true
+                        },
+                        {
+                          "key": "fromAmount",
+                          "value": "100"
+                        },
+                        {
+                          "key": "toEmail",
+                          "value": "123@mail.com",
+                          "type": "text"
+                        }
+                      ]
+                    }
+                  },
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": null,
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json; charset=utf-8"
+                    },
+                    {
+                      "key": "Date",
+                      "value": "Thu, 12 Feb 2026 07:39:46 GMT"
+                    },
+                    {
+                      "key": "Content-Length",
+                      "value": "349"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n    \"code\": 0,\n    \"data\": {\n        \"toAmount\": \"99.00\",\n        \"toUserId\": \"96600243824069427\",\n        \"toWalletId\": \"2001679096030066191\",\n        \"toCategoryId\": \"2001\",\n        \"toCurrency\": \"usd\",\n        \"fromAmount\": \"100.00\",\n        \"fromWalletId\": \"200110001\",\n        \"fromCategoryId\": \"2001\",\n        \"fromCurrency\": \"usd\",\n        \"fee\": \"1.00\",\n        \"feeCurrency\": \"\",\n        \"key\": \"32aff0aa0a55bfdbc4307aac86a8e159\",\n        \"expiredAt\": \"1770882886206\"\n    },\n    \"msg\": \"ok\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "confirm",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      ""
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-token",
+                    "value": "{{x-token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "x-app-version",
+                    "value": "1.5.0",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"key\": \"{{transfer_key}}\",\n    \"pinCode\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://127.0.0.1:8081/web/transfer/confirm",
+                  "protocol": "http",
+                  "host": [
+                    "127",
+                    "0",
+                    "0",
+                    "1"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "web",
+                    "transfer",
+                    "confirm"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "websocket(請複製連結後另開ws request)",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "test",
+      "item": [
+        {
+          "name": "addAccount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-token",
+                "value": "{{x-token}}",
+                "type": "text"
+              },
+              {
+                "key": "x-app-version",
+                "value": "1.5.0",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"fromWalletId\": \"2003\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8081/test/account/addAccount",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "8081",
+              "path": [
+                "test",
+                "account",
+                "addAccount"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

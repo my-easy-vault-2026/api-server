@@ -1,8 +1,9 @@
 package infra
 
 import (
-	"api-server/lib"
 	"fmt"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

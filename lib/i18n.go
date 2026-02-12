@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
 
 	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"

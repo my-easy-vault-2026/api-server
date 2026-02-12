@@ -1,8 +1,9 @@
 package mq
 
 import (
-	"api-server/infra"
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
 
 	"go.uber.org/fx"
 )

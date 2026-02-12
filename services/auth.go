@@ -1,20 +1,22 @@
 package services
 
 import (
-	authDao "api-server/dao/auth"
-	cardDao "api-server/dao/card"
-	systemDao "api-server/dao/system"
-	userDao "api-server/dao/user"
-	"api-server/infra"
-	"api-server/lib"
 	"context"
 	"errors"
 	"math"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	authDao "github.com/my-easy-vault-2026/api-server/dao/auth"
+	cardDao "github.com/my-easy-vault-2026/api-server/dao/card"
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	userDao "github.com/my-easy-vault-2026/api-server/dao/user"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"

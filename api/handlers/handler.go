@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"api-server/api/handlers/test"
-	"api-server/api/handlers/web"
+	"github.com/my-easy-vault-2026/api-server/api/handlers/test"
+	"github.com/my-easy-vault-2026/api-server/api/handlers/web"
 
 	"go.uber.org/fx"
 )

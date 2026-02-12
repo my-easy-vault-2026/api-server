@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/common"
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 )

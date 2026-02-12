@@ -7,3 +7,4 @@ __debug*
 .vscode/launch.json
 .idea/
 tempfile/
+bin/

@@ -1,9 +1,10 @@
 package commands
 
 import (
-	"api-server/lib"
 	"math/rand"
 	"time"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/spf13/cobra"
 )

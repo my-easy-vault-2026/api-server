@@ -1,8 +1,9 @@
 package services
 
 import (
-	"api-server/lib"
 	"context"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 )
 
 type TestService struct {

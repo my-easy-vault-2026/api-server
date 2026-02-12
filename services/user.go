@@ -1,11 +1,13 @@
 package services
 
 import (
-	authDao "api-server/dao/auth"
-	userDao "api-server/dao/user"
-	"api-server/lib"
 	"context"
-	"shared-modules/common"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	authDao "github.com/my-easy-vault-2026/api-server/dao/auth"
+	userDao "github.com/my-easy-vault-2026/api-server/dao/user"
+	"github.com/my-easy-vault-2026/api-server/lib"
 )
 
 type UserService struct {

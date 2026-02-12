@@ -1,15 +1,15 @@
 package dao
 
 import (
-	accountDao "api-server/dao/account"
-	authDao "api-server/dao/auth"
-	cardDao "api-server/dao/card"
-	coinsdoDao "api-server/dao/coinsdo"
-	exchangeDao "api-server/dao/exchange"
-	orderDao "api-server/dao/order"
-	systemDao "api-server/dao/system"
-	transferDao "api-server/dao/transfer"
-	userDao "api-server/dao/user"
+	accountDao "github.com/my-easy-vault-2026/api-server/dao/account"
+	authDao "github.com/my-easy-vault-2026/api-server/dao/auth"
+	cardDao "github.com/my-easy-vault-2026/api-server/dao/card"
+	coinsdoDao "github.com/my-easy-vault-2026/api-server/dao/coinsdo"
+	exchangeDao "github.com/my-easy-vault-2026/api-server/dao/exchange"
+	orderDao "github.com/my-easy-vault-2026/api-server/dao/order"
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	transferDao "github.com/my-easy-vault-2026/api-server/dao/transfer"
+	userDao "github.com/my-easy-vault-2026/api-server/dao/user"
 
 	"go.uber.org/fx"
 )

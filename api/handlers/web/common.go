@@ -1,9 +1,11 @@
 package web
 
 import (
-	"api-server/lib"
 	"net/http"
-	"shared-modules/common"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gin-gonic/gin"
 )

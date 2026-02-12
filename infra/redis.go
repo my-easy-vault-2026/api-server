@@ -1,9 +1,10 @@
 package infra
 
 import (
-	"api-server/lib"
 	"context"
 	"crypto/tls"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/redis/go-redis/v9"
 )

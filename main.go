@@ -1,7 +1,7 @@
 package main
 
 import (
-	"api-server/bootstrap"
+	"github.com/my-easy-vault-2026/api-server/bootstrap"
 
 	"github.com/joho/godotenv"
 )

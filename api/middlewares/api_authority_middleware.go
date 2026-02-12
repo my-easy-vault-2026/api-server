@@ -1,12 +1,14 @@
 package middlewares
 
 import (
-	"api-server/lib"
-	"api-server/services"
 	"fmt"
 	"net/http"
-	"shared-modules/common"
 	"strings"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 
 	"github.com/gin-gonic/gin"
 )

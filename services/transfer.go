@@ -1,23 +1,25 @@
 package services
 
 import (
-	accountDao "api-server/dao/account"
-	cardDao "api-server/dao/card"
-	coinsdoDao "api-server/dao/coinsdo"
-	orderDao "api-server/dao/order"
-	systemDao "api-server/dao/system"
-	transferDao "api-server/dao/transfer"
-	userDao "api-server/dao/user"
-	"api-server/infra"
-	"api-server/lib"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"strconv"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	accountDao "github.com/my-easy-vault-2026/api-server/dao/account"
+	cardDao "github.com/my-easy-vault-2026/api-server/dao/card"
+	coinsdoDao "github.com/my-easy-vault-2026/api-server/dao/coinsdo"
+	orderDao "github.com/my-easy-vault-2026/api-server/dao/order"
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	transferDao "github.com/my-easy-vault-2026/api-server/dao/transfer"
+	userDao "github.com/my-easy-vault-2026/api-server/dao/user"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/bcrypt"
@@ -514,7 +516,7 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 		Msg:      fmt.Sprintf("Received %s %s from %s. order no: %s", preview.ToAmount, preview.ToCurrency, user.Email, orderNO),
 		UserID:   preview.ToUserID,
 	}
-	err = ts.mq.Push(ctx, utils.GetQueueKey("websocket"), msg)
+	err = ts.mq.Pub(ctx, utils.GetPubsubKey("websocket"), msg)
 	if err != nil {
 		ts.logger.Warn("push failed,", err)
 	}

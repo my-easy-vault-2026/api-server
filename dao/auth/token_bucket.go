@@ -3,8 +3,8 @@ package auth
 import (
 	"time"
 
-	"api-server/infra"
-	"api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 )
 
 type TokenBucketData struct {

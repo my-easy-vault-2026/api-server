@@ -1,8 +1,8 @@
 package middlewares
 
 import (
-	"api-server/lib"
-	"api-server/services"
+	"github.com/my-easy-vault-2026/api-server/lib"
+	"github.com/my-easy-vault-2026/api-server/services"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,10 +1,11 @@
 package services
 
 import (
-	systemDao "api-server/dao/system"
-	"api-server/lib"
-	"shared-modules/common"
-	"shared-modules/entities"
+	"github.com/my-easy-vault-2026/api-server/entities"
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gin-gonic/gin"
 )

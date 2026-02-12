@@ -1,7 +1,7 @@
 package bootstrap
 
 import (
-	"api-server/console"
+	"github.com/my-easy-vault-2026/api-server/console"
 
 	"github.com/spf13/cobra"
 )

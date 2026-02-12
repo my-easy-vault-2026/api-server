@@ -1,22 +1,24 @@
 package services
 
 import (
-	accountDao "api-server/dao/account"
-	cardDao "api-server/dao/card"
-	coinsdoDao "api-server/dao/coinsdo"
-	exchangeDao "api-server/dao/exchange"
-	orderDao "api-server/dao/order"
-	systemDao "api-server/dao/system"
-	userDao "api-server/dao/user"
-	"api-server/infra"
-	"api-server/lib"
 	"context"
 	"encoding/json"
 	"math/rand"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"strconv"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	accountDao "github.com/my-easy-vault-2026/api-server/dao/account"
+	cardDao "github.com/my-easy-vault-2026/api-server/dao/card"
+	coinsdoDao "github.com/my-easy-vault-2026/api-server/dao/coinsdo"
+	exchangeDao "github.com/my-easy-vault-2026/api-server/dao/exchange"
+	orderDao "github.com/my-easy-vault-2026/api-server/dao/order"
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	userDao "github.com/my-easy-vault-2026/api-server/dao/user"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"

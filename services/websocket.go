@@ -1,11 +1,13 @@
 package services
 
 import (
-	"api-server/infra"
-	"api-server/lib"
 	"context"
-	"shared-modules/common"
-	"shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gorilla/websocket"
 )

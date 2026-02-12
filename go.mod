@@ -1,4 +1,4 @@
-module api-server
+module github.com/my-easy-vault-2026/api-server
 
 go 1.23.0
 
@@ -27,7 +27,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	golang.org/x/text v0.28.0
 	gorm.io/driver/mysql v1.5.7
-	gorm.io/gorm v1.26.0
+	gorm.io/gorm v1.30.0
 )
 
 require (
@@ -37,6 +37,7 @@ require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gorilla/websocket v1.5.3
 	github.com/joho/godotenv v1.5.1
+	github.com/my-easy-vault-2026/shared-modules v0.0.0-20260212083834-eb97fd74f447
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cobra v1.10.2
@@ -45,7 +46,6 @@ require (
 	go.uber.org/zap v1.26.0
 	golang.org/x/sync v0.16.0
 	gorm.io/plugin/dbresolver v1.6.2
-	shared-modules v0.0.0-00010101000000-000000000000
 )
 
 require (

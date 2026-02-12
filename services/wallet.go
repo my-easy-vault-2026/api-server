@@ -1,14 +1,16 @@
 package services
 
 import (
-	accountDao "api-server/dao/account"
-	cardDao "api-server/dao/card"
-	"api-server/infra"
-	"api-server/lib"
 	"context"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"strconv"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	accountDao "github.com/my-easy-vault-2026/api-server/dao/account"
+	cardDao "github.com/my-easy-vault-2026/api-server/dao/card"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"gorm.io/gorm"
 )
