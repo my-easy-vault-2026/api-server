@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/my-easy-vault-2026/api-server/lib"
-	"github.com/my-easy-vault-2026/api-server/utils"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
 
 	"github.com/my-easy-vault-2026/shared-modules/common"
 

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/my-easy-vault-2026/api-server/utils"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
 )
 
 type DatabaseTimezoneLib struct {
