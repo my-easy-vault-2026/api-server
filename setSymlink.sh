@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 要建立 symlink 的目錄名稱清單
-MODULES=(common entities lang logger utils)
+MODULES=(common lang utils)
 
 echo "🔁 建立 shared-modules 的 symlink 到本專案目錄..."
 
@@ -13,8 +13,8 @@ for dir in "${MODULES[@]}"; do
   fi
 
   # 建立 symlink
-  ln -s ../shared-modules/"$dir" ./"$dir"
-  echo "✅ 建立 symlink: $dir → ../shared-modules/$dir"
+  ln -s ../github.com/my-easy-vault-2026/shared-modules/"$dir" ./"$dir"
+  echo "✅ 建立 symlink: $dir → ../github.com/my-easy-vault-2026/shared-modules/$dir"
 done
 
 echo "🎉 所有 symlink 已建立完成。"

@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -22,8 +26,7 @@ type UserGroup struct {
 	UserID    uint64
 	GroupID   uint64
 	Name      string
-	Role      common.Role       `gorm:"default:null"`
-	Level     common.AdminLevel `gorm:"default:null"`
+	Role      common.Role `gorm:"default:null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -33,14 +36,26 @@ type UserGroupQuery struct {
 	Attrs     UserGroup
 	ForUpdate bool
 	ForShare  bool
-	utils.Page
+	common.Page
 }
 
 type UserGroupDao struct {
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewUserGroupDao() *UserGroupDao {
-	return &UserGroupDao{}
+func NewUserGroupDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *UserGroupDao {
+	return &UserGroupDao{db: db, env: env, beBuilder: beBuilder}
+}
+
+func (gd *UserGroupDao) WithTx(tx *gorm.DB) *UserGroupDao {
+	if gd == nil {
+		return gd
+	}
+	newDao := *gd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (UserGroup) TableName() string {
@@ -49,11 +64,11 @@ func (UserGroup) TableName() string {
 
 func (gd *UserGroupDao) GetByID(ctx context.Context, id uint64) (*UserGroup, error) {
 	if id == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, gd.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := &UserGroup{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -75,7 +90,7 @@ func (gd *UserGroupDao) GetByID(ctx context.Context, id uint64) (*UserGroup, err
 
 func (gd *UserGroupDao) Get(ctx context.Context, query *UserGroupQuery) (*UserGroup, error) {
 	result := &UserGroup{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -93,10 +108,10 @@ func (gd *UserGroupDao) Get(ctx context.Context, query *UserGroupQuery) (*UserGr
 
 func (gd *UserGroupDao) ListByUserID(ctx context.Context, userID uint64) ([]*UserGroup, error) {
 	if userID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, gd.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*UserGroup, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -120,7 +135,7 @@ func (gd *UserGroupDao) ListByUserID(ctx context.Context, userID uint64) ([]*Use
 
 func (gd *UserGroupDao) Gets(ctx context.Context, query *UserGroupQuery) ([]UserGroup, error) {
 	result := make([]UserGroup, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&UserGroup{}).
@@ -140,8 +155,8 @@ func (gd *UserGroupDao) Gets(ctx context.Context, query *UserGroupQuery) ([]User
 
 func (gd *UserGroupDao) Save(ctx context.Context, group *UserGroup) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	groupID := utils.SnowFlakeUserID.Generate()
+	db := gd.db.WithContext(ctx)
+	groupID := utils.RandomID()
 	group.ID = groupID
 	ret := db.Create(group)
 
@@ -158,7 +173,7 @@ func (gd *UserGroupDao) Update(ctx context.Context, query *UserGroupQuery) (int6
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)

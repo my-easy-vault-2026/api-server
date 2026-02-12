@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -18,19 +22,19 @@ import (
 )
 
 type Bill struct {
-	ID                   uint64
-	UserID               uint64
-	AssetID              uint64
-	OrderNo              string
-	Amount               decimal.Decimal
-	CurrentAmount        decimal.Decimal
-	CurrentFreezedAmount decimal.Decimal
-	Currency             common.Currency
-	TransactionType      common.TransactionType
-	BillType             common.BillType
-	OrderType            common.TransactionRecordType
-	CreatedAt            time.Time `gorm:"default:null"`
-	UpdatedAt            time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID                  uint64
+	UserID              uint64
+	AssetID             uint64
+	OrderNo             string
+	Amount              decimal.Decimal
+	CurrentAmount       decimal.Decimal
+	CurrentFrozenAmount decimal.Decimal
+	Currency            common.Currency
+	TransactionType     common.TransactionType
+	BillType            common.BillType
+	OrderType           common.TransactionRecordType
+	CreatedAt           time.Time `gorm:"default:null"`
+	UpdatedAt           time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type BillQuery struct {
@@ -46,620 +50,35 @@ type BillQuery struct {
 	OrderDirection common.OrderDirection
 	CreatedAtFrom  time.Time
 	CreatedAtTo    time.Time
-	utils.Page
+	common.Page
 }
 
 type BillDao struct {
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewBillDao() *BillDao {
-	return &BillDao{}
+func NewBillDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *BillDao {
+	return &BillDao{db: db, env: env, beBuilder: beBuilder}
+}
+
+func (bd *BillDao) WithTx(tx *gorm.DB) *BillDao {
+	if bd == nil {
+		return bd
+	}
+	newDao := *bd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Bill) TableName() string {
 	return "bill"
 }
 
-func (bd *BillDao) GetByDateRange(ctx context.Context, currency common.Currency, startDate, endDate time.Time) ([]*Bill, error) {
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				Currency: currency,
-			},
-		})).
-		Where("created_at BETWEEN ? AND ?", startDate, endDate).
-		Find(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) GetByOrderNOBillType(ctx context.Context, orderNO string, billType common.BillType) (*Bill, error) {
-	if orderNO == "" || billType == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &Bill{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				OrderNo:  orderNO,
-				BillType: billType,
-			},
-		})).
-		Scan(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) PageByUserIDAssetIDCurrency(ctx context.Context, userID uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID:   userID,
-				AssetID:  assetID,
-				Currency: currency,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID:   userID,
-				AssetID:  assetID,
-				Currency: currency,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDAssetIDCurrencyAmountNotZero(ctx context.Context, userID uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID:   userID,
-				AssetID:  assetID,
-				Currency: currency,
-			},
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID:   userID,
-				AssetID:  assetID,
-				Currency: currency,
-			},
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDInAssetIDCurrency(ctx context.Context, userIDIn []uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				Currency: currency,
-				AssetID:  assetID,
-			},
-			UserIDIn:      userIDIn,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				Currency: currency,
-				AssetID:  assetID,
-			},
-			UserIDIn:      userIDIn,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDInAssetIDCurrencyAmountNotZero(ctx context.Context, userIDIn []uint64, assetID uint64, currency common.Currency, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				Currency: currency,
-				AssetID:  assetID,
-			},
-			UserIDIn:      userIDIn,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				Currency: currency,
-				AssetID:  assetID,
-			},
-			UserIDIn:      userIDIn,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) ListByUserIDInCardIDIn(ctx context.Context, userIDs []uint64, cardIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time) (records []*Bill, err error) {
-
-	if len(userIDs) == 0 && len(cardIDs) == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:           Bill{},
-			UserIDIn:       userIDs,
-			AssetIDIn:      cardIDs,
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"user_id", "card_id", "created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Bill{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) ListByUserID(ctx context.Context, userID uint64, createdAtFrom time.Time, createdAtTo time.Time) (records []*Bill, err error) {
-
-	if userID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID: userID,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Bill{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) ListByIDIn(ctx context.Context, ids []uint64, createdAtFrom time.Time, createdAtTo time.Time) (records []*Bill, err error) {
-
-	if len(ids) == 0 {
-		return []*Bill{}, nil
-	}
-
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:          Bill{},
-			IDIn:          ids,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Bill{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) ListByAssetIDIn(ctx context.Context, assetIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time) (records []*Bill, err error) {
-
-	if len(assetIDs) == 0 {
-		return make([]*Bill, 0), nil
-	}
-
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:           Bill{},
-			AssetIDIn:      assetIDs,
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"user_id", "asset_id", "created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Bill{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) ListByUserIDIn(ctx context.Context, userIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time) (records []*Bill, err error) {
-
-	if len(userIDs) == 0 {
-		return make([]*Bill, 0), nil
-	}
-
-	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:           Bill{},
-			UserIDIn:       userIDs,
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"user_id", "asset_id", "created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return []*Bill{}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (bd *BillDao) PageByUserID(ctx context.Context, userID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID: userID,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID: userID,
-			},
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDAmountNotZero(ctx context.Context, userID uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID: userID,
-			},
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill: Bill{
-				UserID: userID,
-			},
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDIn(ctx context.Context, userIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:          Bill{},
-			UserIDIn:      userIDs,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			UserIDIn:       userIDs,
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByUserIDInAmountNotZero(ctx context.Context, userIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:     Bill{},
-			UserIDIn: userIDs,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			UserIDIn: userIDs,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByAssetIDIn(ctx context.Context, assetIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:          Bill{},
-			AssetIDIn:     assetIDs,
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			AssetIDIn:      assetIDs,
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (bd *BillDao) PageByAssetIDInAmountNotZero(ctx context.Context, assetIDs []uint64, createdAtFrom time.Time, createdAtTo time.Time, pageCurrent int, pageSize int) (records []*Bill, current int, size int, total int, err error) {
-	result := make([]*Bill, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(Bill{}).
-		Scopes(bd.queryChain(&BillQuery{
-			Bill:      Bill{},
-			AssetIDIn: assetIDs,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom: createdAtFrom,
-			CreatedAtTo:   createdAtTo,
-		})).
-		Count(&s).
-		Scopes(bd.queryChain(&BillQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			AssetIDIn: assetIDs,
-			NotEqual: map[string]interface{}{
-				"amount": 0,
-			},
-			CreatedAtFrom:  createdAtFrom,
-			CreatedAtTo:    createdAtTo,
-			OrderBy:        []string{"created_at"},
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
 func (bd *BillDao) Get(ctx context.Context, query *BillQuery) (*Bill, error) {
 	result := &Bill{}
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -677,7 +96,7 @@ func (bd *BillDao) Get(ctx context.Context, query *BillQuery) (*Bill, error) {
 
 func (bd *BillDao) Gets(ctx context.Context, query *BillQuery) ([]*Bill, error) {
 	result := make([]*Bill, 0)
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	err := db.
 		Model(Bill{}).
@@ -697,7 +116,7 @@ func (bd *BillDao) Gets(ctx context.Context, query *BillQuery) ([]*Bill, error) 
 
 func (bd *BillDao) Save(ctx context.Context, model *Bill, clauses ...utils.Clause) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := bd.db.WithContext(ctx)
 
 	for _, c := range clauses {
 		db = db.Scopes(c.Scope())

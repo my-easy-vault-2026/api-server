@@ -3,16 +3,13 @@ package entities
 import "github.com/shopspring/decimal"
 
 type ExchangePreviewForm struct {
-	FromCardID uint64           `json:"fromCardId,string" validate:"required"`
-	ToCardID   uint64           `json:"toCardId,string"`
-	ToCategory string           `json:"toCategory"`
-	FromAmount *decimal.Decimal `json:"fromAmount"`
-	ToAmount   *decimal.Decimal `json:"toAmount"`
+	FromWalletID uint64          `form:"fromWalletId,string" validate:"required"`
+	ToCurrency   string          `form:"toCurrency" validate:"required"`
+	FromAmount   decimal.Decimal `form:"fromAmount"`
 }
 
 type ExchangeConfirmForm struct {
-	ExchangeKey string `json:"exchangeKey" validate:"required"`
-	PinCode     string `json:"pinCode"`
+	Key string `form:"key" validate:"required"`
 }
 
 type AutoExchangeForm struct {

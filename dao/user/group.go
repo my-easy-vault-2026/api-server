@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -20,10 +24,9 @@ import (
 type Group struct {
 	ID           uint64
 	Name         string
-	Description  string            `gorm:"default:null"`
-	Role         common.Role       `gorm:"default:null"`
-	Level        common.AdminLevel `gorm:"default:null"`
-	ExclusiveIDs string            `gorm:"default:null"`
+	Description  string      `gorm:"default:null"`
+	Role         common.Role `gorm:"default:null"`
+	ExclusiveIDs string      `gorm:"default:null"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -33,14 +36,26 @@ type GroupQuery struct {
 	Attrs     Group
 	ForUpdate bool
 	ForShare  bool
-	utils.Page
+	common.Page
 }
 
 type GroupDao struct {
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewGroupDao() *GroupDao {
-	return &GroupDao{}
+func NewGroupDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *GroupDao {
+	return &GroupDao{db: db, env: env, beBuilder: beBuilder}
+}
+
+func (gd *GroupDao) WithTx(tx *gorm.DB) *GroupDao {
+	if gd == nil {
+		return gd
+	}
+	newDao := *gd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Group) TableName() string {
@@ -49,11 +64,11 @@ func (Group) TableName() string {
 
 func (gd *GroupDao) GetByID(ctx context.Context, id uint64) (*Group, error) {
 	if id == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, gd.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := &Group{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -75,7 +90,7 @@ func (gd *GroupDao) GetByID(ctx context.Context, id uint64) (*Group, error) {
 
 func (gd *GroupDao) Get(ctx context.Context, query *GroupQuery) (*Group, error) {
 	result := &Group{}
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -93,7 +108,7 @@ func (gd *GroupDao) Get(ctx context.Context, query *GroupQuery) (*Group, error) 
 
 func (gd *GroupDao) Gets(ctx context.Context, query *GroupQuery) ([]Group, error) {
 	result := make([]Group, 0)
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	err := db.
 		Model(&Group{}).
@@ -113,8 +128,8 @@ func (gd *GroupDao) Gets(ctx context.Context, query *GroupQuery) ([]Group, error
 
 func (gd *GroupDao) Save(ctx context.Context, group *Group) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	groupID := utils.SnowFlakeUserID.Generate()
+	db := gd.db.WithContext(ctx)
+	groupID := utils.RandomID()
 	group.ID = groupID
 	ret := db.Create(group)
 
@@ -131,7 +146,7 @@ func (gd *GroupDao) Update(ctx context.Context, query *GroupQuery) (int64, error
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := gd.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)

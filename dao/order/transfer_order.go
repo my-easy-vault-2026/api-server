@@ -6,9 +6,12 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -22,23 +25,15 @@ type TransferOrder struct {
 	UserID         uint64
 	ToAmount       decimal.Decimal
 	ToUserID       uint64
-	ToCardID       uint64
+	ToWalletID     uint64
 	ToCategoryID   uint64
 	ToCurrency     common.Currency
-	ToEmail        string `gorm:"default:null"`
-	ToAddress      string `gorm:"default:null"`
 	FromAmount     decimal.Decimal
-	FromCardID     uint64
+	FromWalletID   uint64
 	FromCategoryID uint64
 	FromCurrency   common.Currency
-	FromEmail      string           `gorm:"default:null"`
-	FromAddress    string           `gorm:"default:null"`
-	Mainnet        common.Mainnet   `gorm:"default:null"`
-	Protocol       common.Protocol  `gorm:"default:null"`
-	ExchangeRate   *decimal.Decimal `gorm:"default:null"`
-	ExchangeFee    *decimal.Decimal `gorm:"default:null"`
-	TransferFee    decimal.Decimal
-	Channel        common.TransferChannel `gorm:"default:null"`
+	Fee            decimal.Decimal
+	FeeCurrency    common.Currency
 	Status         common.TransferStatus
 	CreatedAt      time.Time `gorm:"default:null"`
 	UpdatedAt      time.Time `gorm:"default:null;autoUpdateTime:false"`
@@ -50,13 +45,21 @@ type TransferOrderQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	StatusIn  []common.TransferStatus
-	utils.Page
+	common.Page
 }
 type TransferOrderDao struct {
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewTransferOrderDao() *TransferOrderDao {
-	return &TransferOrderDao{}
+func NewTransferOrderDao(db infra.Database, env *lib.Env) *TransferOrderDao {
+	return &TransferOrderDao{db: db, env: env}
+}
+
+func (trd *TransferOrderDao) WithTx(tx *gorm.DB) *TransferOrderDao {
+	newDao := *trd
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (TransferOrder) TableName() string {
@@ -65,7 +68,7 @@ func (TransferOrder) TableName() string {
 
 func (trd *TransferOrderDao) Save(ctx context.Context, model *TransferOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 
 	ret := db.
 		Model(TransferOrder{}).
@@ -78,7 +81,7 @@ func (trd *TransferOrderDao) Save(ctx context.Context, model *TransferOrder) (ui
 }
 
 func (trd *TransferOrderDao) Update(ctx context.Context, query *TransferOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := trd.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)

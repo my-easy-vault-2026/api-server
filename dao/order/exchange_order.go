@@ -6,9 +6,12 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -18,22 +21,21 @@ import (
 
 type ExchangeOrder struct {
 	ID             uint64
-	OrderNO        string
-	UserID         uint64
-	ToAmount       decimal.Decimal
-	ToCardID       uint64
-	ToCategoryID   uint64
-	ToCurrency     common.Currency
-	FromAmount     decimal.Decimal
-	FromCardID     uint64
-	FromCategoryID uint64
-	FromCurrency   common.Currency
-	ExchangeRate   decimal.Decimal
-	Fee            decimal.Decimal
-	TriggerMode    common.ExchangeTriggerMode `gorm:"default:null"`
-	Status         common.ExchangeStatus
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	OrderNO        string                `gorm:"default:null"`
+	UserID         uint64                `gorm:"default:null"`
+	ToAmount       decimal.Decimal       `gorm:"default:null"`
+	ToWalletID     uint64                `gorm:"default:null"`
+	ToCategoryID   uint64                `gorm:"default:null"`
+	ToCurrency     common.Currency       `gorm:"default:null"`
+	FromAmount     decimal.Decimal       `gorm:"default:null"`
+	FromWalletID   uint64                `gorm:"default:null"`
+	FromCategoryID uint64                `gorm:"default:null"`
+	FromCurrency   common.Currency       `gorm:"default:null"`
+	ExchangeRate   decimal.Decimal       `gorm:"default:null"`
+	Fee            decimal.Decimal       `gorm:"default:null"`
+	Status         common.ExchangeStatus `gorm:"default:null"`
+	CreatedAt      time.Time             `gorm:"default:null"`
+	UpdatedAt      time.Time             `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type ExchangeOrderQuery struct {
@@ -42,14 +44,21 @@ type ExchangeOrderQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	StatusIn  []common.ExchangeStatus
-	utils.Page
+	common.Page
 }
 type ExchangeOrderDao struct {
-	// Add any necessary fields or methods here
+	db  infra.Database
+	env *lib.Env
 }
 
-func NewExchangeOrderDao() *ExchangeOrderDao {
-	return &ExchangeOrderDao{}
+func NewExchangeOrderDao(db infra.Database, env *lib.Env) *ExchangeOrderDao {
+	return &ExchangeOrderDao{db: db, env: env}
+}
+
+func (ed *ExchangeOrderDao) WithTx(tx *gorm.DB) *ExchangeOrderDao {
+	newDao := *ed
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (ExchangeOrder) TableName() string {
@@ -57,7 +66,7 @@ func (ExchangeOrder) TableName() string {
 }
 func (ed *ExchangeOrderDao) Save(ctx context.Context, model *ExchangeOrder) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 
 	ret := db.
 		Model(ExchangeOrder{}).
@@ -70,7 +79,7 @@ func (ed *ExchangeOrderDao) Save(ctx context.Context, model *ExchangeOrder) (uin
 }
 
 func (ed *ExchangeOrderDao) Update(ctx context.Context, query *ExchangeOrderQuery) (int64, error) {
-	db := utils.GetDB(ctx)
+	db := ed.db.WithContext(ctx)
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
 	structValue := reflect.ValueOf(query.Attrs)

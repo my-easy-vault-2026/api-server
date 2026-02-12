@@ -7,9 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -19,40 +23,13 @@ import (
 )
 
 type User struct {
-	ID                uint64
-	Email             string `gorm:"column:email;uniqueIndex"`
-	SystemEmail       string `gorm:"column:system_email;uniqueIndex"`
-	PinCode           string `gorm:"default:null"`
-	Salt              string `gorm:"default:null"`
-	CountryCode       int    `gorm:"default:null"`
-	PhoneNumber       string `gorm:"default:null"`
-	MerchantID        uint64
-	FirstName         string              `gorm:"default:null"`
-	LastName          string              `gorm:"default:null"`
-	NationCode        common.NationCode   `gorm:"default:null"`
-	Channel           string              `gorm:"default:null"`
-	KycLevel          common.KYCLevel     `gorm:"default:null"`
-	CoinfaceMain      common.CoinfaceMain `gorm:"default:null"`
-	Gender            common.Gender       `gorm:"default:null"`
-	Role              common.Role
-	BlockStatus       common.UserBlockStatus  `gorm:"default:null;column:block_status"`
-	BlockReason       *common.UserBlockReason `gorm:"default:null;column:block_reason"`
-	CulmulativeEPoint decimal.Decimal         `gorm:"default:null;column:cumulative_epoint"`
-	EPointLevel       common.EPointLevel      `gorm:"default:null;column:epoint_level"`
-	AutoTopUp         common.AutoTopUpStatus  `gorm:"default:null"`
-	Auto3DS           common.Auto3DSStatus    `gorm:"default:null;column:auto_3ds"`
-	ATMToggle         common.ATMToggle        `gorm:"default:null;column:atm_toggle"`
-	Language          common.Language         `gorm:"default:null"`
-	PromotionCode     string
-	CreatedAt         time.Time `gorm:"default:null"`
-	UpdatedAt         time.Time `gorm:"default:null;autoUpdateTime:false"`
-}
-
-type UserLanguage struct {
-	ID         uint64
-	Language   common.Language `gorm:"default:null"`
-	MerchantID uint64          `gorm:"default:null"`
-	Email      string          `gorm:"column:email"`
+	ID        uint64
+	Email     string `gorm:"column:email;uniqueIndex"`
+	PinCode   string `gorm:"default:null"`
+	Salt      string `gorm:"default:null"`
+	Role      common.Role
+	CreatedAt time.Time `gorm:"default:null"`
+	UpdatedAt time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type UserQuery struct {
@@ -65,14 +42,23 @@ type UserQuery struct {
 	EmailIn        []string
 	OrderBy        string
 	OrderDirection common.OrderDirection
-	utils.Page
+	common.Page
 }
 
 type UserDao struct {
+	db        infra.Database
+	env       *lib.Env
+	beBuilder *lib.BEBuilder
 }
 
-func NewUserDao() *UserDao {
-	return &UserDao{}
+func NewUserDao(db infra.Database, env *lib.Env, beBuilder *lib.BEBuilder) *UserDao {
+	return &UserDao{db: db, env: env, beBuilder: beBuilder}
+}
+
+func (ud *UserDao) WithTx(tx *gorm.DB) *UserDao {
+	newDao := *ud
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (User) TableName() string {
@@ -81,7 +67,7 @@ func (User) TableName() string {
 
 func (ud *UserDao) GetByUserID(ctx context.Context, userID uint64) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -101,31 +87,9 @@ func (ud *UserDao) GetByUserID(ctx context.Context, userID uint64) (*User, error
 	return result, nil
 }
 
-func (ud *UserDao) GetBySystemEmail(ctx context.Context, systemEmail string) (*User, error) {
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				SystemEmail: systemEmail,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (ud *UserDao) GetByUserIDForUpdate(ctx context.Context, userID uint64) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -146,69 +110,13 @@ func (ud *UserDao) GetByUserIDForUpdate(ctx context.Context, userID uint64) (*Us
 	return result, nil
 }
 
-func (ud *UserDao) GetByUserIDMerchantID(ctx context.Context, userID uint64, merchantID uint64) (*User, error) {
-
-	if userID == 0 || merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID:         userID,
-				MerchantID: merchantID,
-				Role:       common.ROLE_MERCHANT_USER,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) GetByEmailMerchantID(ctx context.Context, email string, merchantID uint64) (*User, error) {
-	if email == "" || merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Email:      email,
-				MerchantID: merchantID,
-				Role:       common.ROLE_MERCHANT_USER,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (ud *UserDao) GetByEmailRole(ctx context.Context, email string, role common.Role) (*User, error) {
 	if role == 0 || email == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ud.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -229,149 +137,12 @@ func (ud *UserDao) GetByEmailRole(ctx context.Context, email string, role common
 	return result, nil
 }
 
-func (ud *UserDao) GetByEmailRoleIn(ctx context.Context, email string, roles []common.Role) (*User, error) {
-	if len(roles) == 0 || email == "" || roles[0] == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Email: email,
-			},
-			RoleIn: roles,
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) GetByUserIDPinCode(ctx context.Context, userID uint64, pinCode string) (*User, error) {
-	if userID == 0 || pinCode == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID:      userID,
-				PinCode: pinCode,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) ListByUserIDMerchantID(ctx context.Context, userID uint64, merchantID uint64) ([]*User, error) {
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID:         userID,
-				MerchantID: merchantID,
-			},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ud *UserDao) ListByMerchantUserIDIn(ctx context.Context, userIDs []uint64, merchantID uint64) ([]*User, error) {
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				MerchantID: merchantID,
-			},
-			IDIn: userIDs,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ud *UserDao) ListByMerchantEmailIn(ctx context.Context, emails []string, merchantID uint64) ([]*User, error) {
-	if merchantID == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				MerchantID: merchantID,
-			},
-			EmailIn: emails,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
 func (ud *UserDao) ListByUserIDIn(ctx context.Context, userIDs []uint64) ([]*User, error) {
 	if len(userIDs) == 0 {
 		return nil, nil
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -392,67 +163,12 @@ func (ud *UserDao) ListByUserIDIn(ctx context.Context, userIDs []uint64) ([]*Use
 	return result, nil
 }
 
-func (ud *UserDao) ListByUserIDInRole(ctx context.Context, userIDs []uint64, role common.Role) ([]*User, error) {
-	if len(userIDs) == 0 {
-		return nil, nil
-	}
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Role: role,
-			},
-			IDIn: userIDs,
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (ud *UserDao) ListByEmail(ctx context.Context, email string) ([]*User, error) {
-	if email == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Email: email,
-			},
-		})).
-		Scan(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return result, nil
-}
-
 func (ud *UserDao) ListByEmailRole(ctx context.Context, email string, role common.Role) ([]*User, error) {
 	if email == "" || role == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ud.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -476,369 +192,16 @@ func (ud *UserDao) ListByEmailRole(ctx context.Context, email string, role commo
 }
 
 func (ud *UserDao) DeleteByID(ctx context.Context, userID uint64) error {
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	return db.
 		Where("id=?", userID).
 		Delete(&User{}).Error
 }
 
-func (ud *UserDao) PageAgentUsers(ctx context.Context, promotionCode string, userID uint64, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				PromotionCode: promotionCode,
-				ID:            userID,
-			},
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) PageByRoleEmailPhone(ctx context.Context, role common.Role, email string, countryCode int, phoneNumber string, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	if role == 0 || (email == "" && countryCode == 0 && phoneNumber == "") {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Role:        role,
-				Email:       email,
-				CountryCode: countryCode,
-				PhoneNumber: phoneNumber,
-			},
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) PageByMerchantIDUserIDIn(ctx context.Context, merchantID uint64, userIDs []uint64, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	if merchantID == 0 || len(userIDs) == 0 {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				MerchantID: merchantID,
-			},
-			IDIn: userIDs,
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_ASC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) PageByRole(ctx context.Context, role common.Role, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	if role == 0 {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Role: role,
-			},
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) PageByMerchantID(ctx context.Context, merchantID uint64, direction common.OrderDirection, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	if merchantID == 0 {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				MerchantID: merchantID,
-			},
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: direction,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) PageByRoleEmailPhoneIDIn(ctx context.Context, role common.Role, email string, countryCode int, phone string, idIn []uint64, pageCurrent int, pageSize int) (records []*User, current int, size int, total int, err error) {
-	if role == 0 {
-		return nil, 0, 0, 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-	result := make([]*User, 0)
-	s := int64(0)
-	db := utils.GetDB(ctx)
-
-	err = db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Role:        role,
-				Email:       email,
-				CountryCode: countryCode,
-				PhoneNumber: phone,
-			},
-			IDIn: idIn,
-		})).
-		Count(&s).
-		Scopes(ud.queryChain(&UserQuery{
-			Page: utils.Page{
-				Current:  pageCurrent,
-				PageSize: pageSize,
-			},
-			OrderBy:        "created_at",
-			OrderDirection: common.ORDER_DIRECTION_DESC,
-		})).
-		Scan(&result).Error
-
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-	return result, pageCurrent, pageSize, int(s), nil
-}
-
-func (ud *UserDao) GetByUserIDAndPromotionCode(ctx context.Context, userID uint64, promotionCode string) (*User, error) {
-	result := &User{}
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID:            userID,
-				PromotionCode: promotionCode,
-			},
-		})).
-		First(result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) GetUserIDsByLanguage(ctx context.Context, language common.Language) ([]*User, error) {
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				Language: language,
-			},
-		})).
-		Scan(&result).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) GetUserLanguage(ctx context.Context) ([]*UserLanguage, error) {
-	var ret []*UserLanguage
-	db := utils.GetDB(ctx)
-	err := db.Model(&User{}).Find(&ret).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return ret, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func (ud *UserDao) GetReferredCountByPromotionCode(ctx context.Context, promotionCode string) (int64, error) {
-	if promotionCode == "" {
-		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
-	}
-
-	result := int64(0)
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				PromotionCode: promotionCode,
-			},
-		})).
-		Count(&result).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	return result, nil
-}
-func (ud *UserDao) GetReferredUserByPromotionCode(ctx context.Context, promotionCode string) ([]*User, error) {
-	result := make([]*User, 0)
-	db := utils.GetDB(ctx)
-	err := db.
-		Model(&User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				PromotionCode: promotionCode,
-			},
-		})).
-		Scan(&result).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return make([]*User, 0), nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (ud *UserDao) UpdateStatusByUserID(ctx context.Context, userID uint64, status common.UserBlockStatus) error {
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID: userID,
-			},
-		})).
-		Updates(map[string]interface{}{
-			"block_status": status,
-			"block_reason": nil,
-		}).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (ud *UserDao) UpdateSystemEmailByUserID(ctx context.Context, userID uint64, systemEmail string) error {
-	db := utils.GetDB(ctx)
-
-	err := db.
-		Model(User{}).
-		Scopes(ud.queryChain(&UserQuery{
-			User: User{
-				ID: userID,
-			},
-		})).
-		Updates(map[string]interface{}{
-			"system_email": systemEmail,
-		}).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
 func (ud *UserDao) Get(ctx context.Context, query *UserQuery) (*User, error) {
 	result := &User{}
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -856,7 +219,7 @@ func (ud *UserDao) Get(ctx context.Context, query *UserQuery) (*User, error) {
 
 func (ud *UserDao) Gets(ctx context.Context, query *UserQuery) ([]User, error) {
 	result := make([]User, 0)
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	err := db.
 		Model(&User{}).
@@ -876,8 +239,8 @@ func (ud *UserDao) Gets(ctx context.Context, query *UserQuery) ([]User, error) {
 
 func (ud *UserDao) Save(ctx context.Context, user *User) (uint64, error) {
 
-	db := utils.GetDB(ctx)
-	userID := utils.SnowFlakeUserID.Generate()
+	db := ud.db.WithContext(ctx)
+	userID := utils.RandomID()
 	user.ID = userID
 	ret := db.Create(user)
 
@@ -890,10 +253,10 @@ func (ud *UserDao) Save(ctx context.Context, user *User) (uint64, error) {
 func (ud *UserDao) Update(ctx context.Context, query *UserQuery) (int64, error) {
 
 	if query.ID == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return 0, ud.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -975,10 +338,10 @@ func (ud *UserDao) Update(ctx context.Context, query *UserQuery) (int64, error) 
 func (ud *UserDao) UpdateIncr(ctx context.Context, query *UserQuery, field string, amount decimal.Decimal) (int64, error) {
 
 	if query.ID == 0 {
-		return 0, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return 0, ud.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 
-	db := utils.GetDB(ctx)
+	db := ud.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -1180,7 +543,7 @@ func (ud *UserDao) pageScope(page int, size int) func(db *gorm.DB) *gorm.DB {
 	}
 }
 
-func (ad *UserDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
+func (ud *UserDao) forScope(lock string) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if lock != "" {
 			return db.Clauses(clause.Locking{Strength: lock})

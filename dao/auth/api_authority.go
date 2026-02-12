@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -18,19 +21,17 @@ import (
 )
 
 type APIAuthority struct {
-	ID              uint64
-	Endpoint        string
-	Method          common.HTTPMethod
-	Role            common.Role
-	PinCodeRequired common.PincodeRequired
-	GroupID         uint64
-	Count           int
-	Window          time.Duration
-	Burst           int
-	AdminLevel      common.AdminLevel `gorm:"default:null"`
-	Status          common.APIAuthorityStatus
-	CreatedAt       time.Time `gorm:"default:null"`
-	UpdatedAt       time.Time `gorm:"default:null;autoUpdateTime:false"`
+	ID        uint64
+	Endpoint  string
+	Method    common.HTTPMethod
+	Role      common.Role
+	GroupID   uint64
+	Count     int
+	Window    time.Duration
+	Burst     int
+	Status    common.APIAuthorityStatus
+	CreatedAt time.Time `gorm:"default:null"`
+	UpdatedAt time.Time `gorm:"default:null;autoUpdateTime:false"`
 }
 
 type APIAuthorityQuery struct {
@@ -38,14 +39,23 @@ type APIAuthorityQuery struct {
 	Attrs     APIAuthority
 	ForUpdate bool
 	ForShare  bool
-	utils.Page
+	common.Page
 }
 
 type APIAuthorityDao struct {
+	db    infra.Database
+	env   *lib.Env
+	redis infra.Redis
 }
 
-func NewAPIAuthorityDao() *APIAuthorityDao {
-	return &APIAuthorityDao{}
+func NewAPIAuthorityDao(db infra.Database, env *lib.Env, redis infra.Redis, logger lib.Logger) *APIAuthorityDao {
+	return &APIAuthorityDao{db: db, env: env, redis: redis}
+}
+
+func (ad *APIAuthorityDao) WithTx(tx *gorm.DB) *APIAuthorityDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (APIAuthority) TableName() string {
@@ -54,9 +64,9 @@ func (APIAuthority) TableName() string {
 
 func (ad *APIAuthorityDao) List(ctx context.Context) ([]*APIAuthority, error) {
 	result := make([]*APIAuthority, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(APIAuthority{}).
 			Scopes(ad.queryChain(&APIAuthorityQuery{})).
@@ -72,15 +82,15 @@ func (ad *APIAuthorityDao) List(ctx context.Context) ([]*APIAuthority, error) {
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+		&infra.L2CacheConfig{
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *APIAuthorityDao) Get(ctx context.Context, query *APIAuthorityQuery) (*APIAuthority, error) {
 	result := &APIAuthority{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(APIAuthority{}).
@@ -98,7 +108,7 @@ func (ad *APIAuthorityDao) Get(ctx context.Context, query *APIAuthorityQuery) (*
 
 func (ad *APIAuthorityDao) Gets(ctx context.Context, query *APIAuthorityQuery) ([]*APIAuthority, error) {
 	result := make([]*APIAuthority, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(APIAuthority{}).
@@ -118,7 +128,7 @@ func (ad *APIAuthorityDao) Gets(ctx context.Context, query *APIAuthorityQuery) (
 
 func (ad *APIAuthorityDao) Save(ctx context.Context, model *APIAuthority) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -135,7 +145,7 @@ func (ad *APIAuthorityDao) Update(ctx context.Context, query *APIAuthorityQuery)
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -208,7 +218,7 @@ func (ad *APIAuthorityDao) Update(ctx context.Context, query *APIAuthorityQuery)
 	return ret.RowsAffected, nil
 }
 
-func (pd *APIAuthorityDao) queryChain(query *APIAuthorityQuery) func(db *gorm.DB) *gorm.DB {
+func (ad *APIAuthorityDao) queryChain(query *APIAuthorityQuery) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 
 		structType := reflect.TypeOf(query.APIAuthority)
@@ -225,17 +235,17 @@ func (pd *APIAuthorityDao) queryChain(query *APIAuthorityQuery) func(db *gorm.DB
 			}
 			switch structValue.Field(i).Kind() {
 			case reflect.String:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).String()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).String()))
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).Int()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Int()))
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).Uint()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Uint()))
 			case reflect.Float32, reflect.Float64:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).Float()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Float()))
 			case reflect.Bool:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).Bool()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Bool()))
 			case reflect.Pointer:
-				db.Scopes(pd.equalScope(fieldName, structValue.Field(i).Interface()))
+				db.Scopes(ad.equalScope(fieldName, structValue.Field(i).Interface()))
 			case reflect.Struct:
 				ptr := structPtrValue.Elem().Field(i).Addr().Interface()
 				switch reflect.TypeOf(ptr) {
@@ -254,7 +264,7 @@ func (pd *APIAuthorityDao) queryChain(query *APIAuthorityQuery) func(db *gorm.DB
 					if value == nil {
 						continue
 					}
-					db.Scopes(pd.equalScope(fieldName, value))
+					db.Scopes(ad.equalScope(fieldName, value))
 				}
 			default:
 				continue
@@ -265,13 +275,13 @@ func (pd *APIAuthorityDao) queryChain(query *APIAuthorityQuery) func(db *gorm.DB
 	}
 }
 
-func (pd *APIAuthorityDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *APIAuthorityDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (pd *APIAuthorityDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *APIAuthorityDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)

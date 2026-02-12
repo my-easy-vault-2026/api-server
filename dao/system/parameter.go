@@ -7,9 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"shared-modules/common"
-	"shared-modules/utils"
 	"time"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
 
 	"github.com/gobeam/stringy"
 	"github.com/shopspring/decimal"
@@ -18,23 +21,22 @@ import (
 )
 
 type Parameter struct {
-	ID            uint64                    `json:"id"`
-	Name          string                    `json:"name"`
-	Description   string                    `json:"description"`
-	Key           common.ParameterKey       `json:"key" gorm:"column:key"`
-	Value         string                    `json:"value"`
-	SpecialValue  common.SpecialValue       `json:"specialValue" gorm:"default:null"`
-	ValueType     common.ParameterValueType `json:"valueType"`
-	Currency      common.Currency           `json:"currency" gorm:"default:null"`
-	Unit          common.UnitType           `json:"unit" gorm:"default:null"`
-	Encrypt       common.EncryptType        `json:"encrypt" gorm:"default:null"`
-	CategoryID    common.ParameterCategory  `json:"categoryId"`
-	CategoryName  string                    `json:"categoryName"`
-	SecurityLevel common.AdminLevel         `json:"securityLevel" gorm:"default:null"`
-	Remark        string                    `json:"remark" gorm:"default:null"`
-	Status        common.ParameterStatus    `json:"status"`
-	CreatedAt     time.Time                 `json:"createdAt"`
-	UpdatedAt     time.Time                 `json:"updatedAt"`
+	ID           uint64                    `json:"id"`
+	Name         string                    `json:"name"`
+	Description  string                    `json:"description"`
+	Key          common.ParameterKey       `json:"key" gorm:"column:key"`
+	Value        string                    `json:"value"`
+	SpecialValue common.SpecialValue       `json:"specialValue" gorm:"default:null"`
+	ValueType    common.ParameterValueType `json:"valueType"`
+	Currency     common.Currency           `json:"currency" gorm:"default:null"`
+	Unit         common.UnitType           `json:"unit" gorm:"default:null"`
+	Encrypt      common.EncryptType        `json:"encrypt" gorm:"default:null"`
+	CategoryID   common.ParameterCategory  `json:"categoryId"`
+	CategoryName string                    `json:"categoryName"`
+	Remark       string                    `json:"remark" gorm:"default:null"`
+	Status       common.ParameterStatus    `json:"status"`
+	CreatedAt    time.Time                 `json:"createdAt"`
+	UpdatedAt    time.Time                 `json:"updatedAt"`
 }
 
 type ParameterQuery struct {
@@ -43,14 +45,29 @@ type ParameterQuery struct {
 	ForUpdate bool
 	ForShare  bool
 	KeyIn     []common.ParameterKey
-	utils.Page
+	common.Page
 }
 
 type ParameterDao struct {
+	db        infra.Database
+	env       *lib.Env
+	redis     infra.Redis
+	beBuilder *lib.BEBuilder
 }
 
-func NewParameterDao() *ParameterDao {
-	return &ParameterDao{}
+func NewParameterDao(db infra.Database, env *lib.Env, redis infra.Redis, beBuilder *lib.BEBuilder) *ParameterDao {
+	return &ParameterDao{
+		db:        db,
+		env:       env,
+		redis:     redis,
+		beBuilder: beBuilder,
+	}
+}
+
+func (ad *ParameterDao) WithTx(tx *gorm.DB) *ParameterDao {
+	newDao := *ad
+	newDao.db = infra.Database{DB: tx}
+	return &newDao
 }
 
 func (Parameter) TableName() string {
@@ -59,12 +76,12 @@ func (Parameter) TableName() string {
 
 func (ad *ParameterDao) ListByKeys(ctx context.Context, keys []common.ParameterKey) ([]*Parameter, error) {
 	if len(keys) == 0 {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ad.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := make([]*Parameter, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Parameter{}).
 			Scopes(ad.queryChain(&ParameterQuery{
@@ -82,20 +99,20 @@ func (ad *ParameterDao) ListByKeys(ctx context.Context, keys []common.ParameterK
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+		&infra.L2CacheConfig{
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *ParameterDao) GetByKey(ctx context.Context, key common.ParameterKey) (*Parameter, error) {
 	if key == "" {
-		return nil, utils.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
+		return nil, ad.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_PARAMETER)
 	}
 	result := &Parameter{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
-	return utils.L2CQuery(ctx, db, func(tx *gorm.DB) *gorm.DB {
+	return infra.L2CQuery(ctx, db, ad.redis, func(tx *gorm.DB) *gorm.DB {
 		return tx.
 			Model(Parameter{}).
 			Scopes(ad.queryChain(&ParameterQuery{
@@ -115,15 +132,15 @@ func (ad *ParameterDao) GetByKey(ctx context.Context, key common.ParameterKey) (
 
 		return result, nil
 	},
-		&utils.L2CacheConfig{
-			Level:         []common.L2CacheLevel{common.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: utils.Config.System.L2CacheExpireSeconds,
+		&infra.L2CacheConfig{
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 
 func (ad *ParameterDao) Get(ctx context.Context, query *ParameterQuery) (*Parameter, error) {
 	result := &Parameter{}
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Parameter{}).
@@ -141,7 +158,7 @@ func (ad *ParameterDao) Get(ctx context.Context, query *ParameterQuery) (*Parame
 
 func (ad *ParameterDao) Gets(ctx context.Context, query *ParameterQuery) ([]*Parameter, error) {
 	result := make([]*Parameter, 0)
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	err := db.
 		Model(Parameter{}).
@@ -161,7 +178,7 @@ func (ad *ParameterDao) Gets(ctx context.Context, query *ParameterQuery) ([]*Par
 
 func (ad *ParameterDao) Save(ctx context.Context, model *Parameter) (uint64, error) {
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	ret := db.Create(model)
 
@@ -178,7 +195,7 @@ func (ad *ParameterDao) Update(ctx context.Context, query *ParameterQuery) (int6
 		return 0, errors.ErrUnsupported
 	}
 
-	db := utils.GetDB(ctx)
+	db := ad.db.WithContext(ctx)
 
 	attrs := map[string]interface{}{}
 	structType := reflect.TypeOf(query.Attrs)
@@ -312,13 +329,13 @@ func (pd *ParameterDao) queryChain(query *ParameterQuery) func(db *gorm.DB) *gor
 	}
 }
 
-func (pd *ParameterDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *ParameterDao) equalScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		return db.Where(fmt.Sprintf("`%s` = ? ", fieldName), field)
 	}
 }
 
-func (pd *ParameterDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
+func (ad *ParameterDao) inScope(fieldName string, field interface{}) func(db *gorm.DB) *gorm.DB {
 	return func(db *gorm.DB) *gorm.DB {
 		if reflect.TypeOf(field).Kind() == reflect.Slice {
 			return db.Where(fmt.Sprintf("`%s` IN ? ", fieldName), field)

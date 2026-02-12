@@ -1,0 +1,56 @@
+package services
+
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/my-easy-vault-2026/shared-modules/common"
+	"github.com/my-easy-vault-2026/shared-modules/utils"
+
+	systemDao "github.com/my-easy-vault-2026/api-server/dao/system"
+	"github.com/my-easy-vault-2026/api-server/infra"
+	"github.com/my-easy-vault-2026/api-server/lib"
+
+	"github.com/redis/go-redis/v9"
+)
+
+type DefaultRateGetter struct {
+	parameterDao *systemDao.ParameterDao
+	logger       lib.Logger
+	beBuilder    *lib.BEBuilder
+	redis        infra.Redis
+}
+
+func NewDefaultRateGetter(parameterDao *systemDao.ParameterDao, logger lib.Logger, beBuilder *lib.BEBuilder, redis infra.Redis) *DefaultRateGetter {
+	return &DefaultRateGetter{
+		parameterDao: parameterDao,
+		logger:       logger,
+		beBuilder:    beBuilder,
+		redis:        redis,
+	}
+}
+
+func (rg *DefaultRateGetter) GetExchangeRate(ctx context.Context, quote common.Currency, base common.Currency) (*common.ExchangeRate, error) {
+
+	redisKey := utils.GetRateRedisKey(quote.String())
+
+	rate, err := rg.redis.HGet(ctx, redisKey, base.String()).Result()
+	if err != nil {
+		if err == redis.Nil {
+			rg.logger.Errorf("GetExchangeRate: key %s not found", redisKey)
+			return nil, rg.beBuilder.NewBusinessError(ctx, common.CODE_NO_SUCH_RATE)
+		} else {
+			rg.logger.Errorf("GetExchangeRate: key %s error: %v", redisKey, err)
+			return nil, rg.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
+		}
+	}
+
+	var res *common.ExchangeRate
+	err = json.Unmarshal([]byte(rate), &res)
+	if err != nil {
+		rg.logger.Error("GetExchangeRate JSON Unmarshal error: ", err)
+		return nil, err
+	}
+
+	return res, nil
+}

@@ -1,14 +1,9 @@
-# 开发规范
+# easy vault api server
 
-## 准备工作
-
-1、准备好Golang环境
-
-2、swagger：https://github.com/swaggo/swag?tab=readme-ov-file#descriptions-over-multiple-lines
-
-3、本地调试: mysql/redis等
-
-4、https://dashboard.ngrok.com/ localhost -> public domain
+## build
+```
+docker build -f ./docker/Dockerfile -t easy_vault:1.0.0 .
+```
 
 ## 開發規範細節
 
