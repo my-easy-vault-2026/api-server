@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 
@@ -40,7 +41,7 @@ func NewMQ(rds Redis, logger lib.Logger, env *lib.Env) (*MQ, error) {
 		go func() {
 			for {
 				var result []string
-				result, err = mq.redis.BRPop(ctx, 1000, l).Result()
+				result, err = mq.redis.BRPop(ctx, 1000*time.Second, l).Result()
 				if err != nil && !errors.Is(err, redis.Nil) {
 					fmt.Printf("brpop failed:%v", err)
 				}
@@ -82,7 +83,7 @@ func (m *MQ) Push(ctx context.Context, queueName string, msg *common.Msg) error 
 		m.logger.Warnf("unmarshal err:[%#v] [%v] ", msg, err)
 		return err
 	}
-	m.logger.Infof("push msg info [%d][%#v]", msg.OP, msg)
+	m.logger.Infof("push msg info [%s][%#v]", msg.OP, msg)
 
 	if err := m.redis.LPush(ctx, queueName, j).Err(); err != nil {
 		m.logger.Warnf("lpush err:%v", err)

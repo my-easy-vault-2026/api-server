@@ -12,6 +12,7 @@ import (
 	"api-server/lib"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"shared-modules/common"
 	"shared-modules/utils"
@@ -40,6 +41,7 @@ type TransferService struct {
 	db                   infra.Database
 	env                  *lib.Env
 	quoteService         *QuoteService
+	mq                   *infra.MQ
 }
 
 func NewTransferService(transferOrderDao *orderDao.TransferOrderDao,
@@ -57,7 +59,8 @@ func NewTransferService(transferOrderDao *orderDao.TransferOrderDao,
 	lockers infra.Lockers,
 	db infra.Database,
 	env *lib.Env,
-	quoteService *QuoteService) *TransferService {
+	quoteService *QuoteService,
+	mq *infra.MQ) *TransferService {
 	return &TransferService{
 		transferOrderDao:     transferOrderDao,
 		cardDao:              cardDao,
@@ -75,6 +78,7 @@ func NewTransferService(transferOrderDao *orderDao.TransferOrderDao,
 		db:                   db,
 		env:                  env,
 		quoteService:         quoteService,
+		mq:                   mq,
 	}
 }
 
@@ -83,7 +87,7 @@ func (ts *TransferService) TransferPreview(ctx context.Context,
 	fromWalletID uint64,
 	toEmail string,
 	toUserID uint64,
-	userID uint64) (oreview *transferDao.Preview, key string, places int, err error) {
+	userID uint64) (preview *transferDao.Preview, key string, places int, err error) {
 	fromUser, err := ts.userDao.GetByUserID(ctx, userID)
 	if err != nil {
 		ts.logger.Warn("get failed,", err)
@@ -196,7 +200,7 @@ func (ts *TransferService) TransferPreview(ctx context.Context,
 		}
 	}
 
-	preview := &transferDao.Preview{
+	preview = &transferDao.Preview{
 		UserID:         userID,
 		ToWalletID:     toWallet.ID,
 		ToCategoryID:   toWallet.CategoryID,
@@ -207,7 +211,7 @@ func (ts *TransferService) TransferPreview(ctx context.Context,
 		FromCategoryID: fromWallet.CategoryID,
 		FromCurrency:   fromWallet.Currency,
 		Fee:            transferFee,
-		ExpiredAt:      time.Now().Add(ts.env.PreviewExpiryTime * time.Second),
+		ExpiredAt:      time.Now().Add(ts.env.PreviewExpiryTime),
 	}
 
 	preview.ToAmount = fromAmount.Sub(preview.Fee)
@@ -240,7 +244,7 @@ func (ts *TransferService) TransferPreview(ctx context.Context,
 
 	key = utils.Md5String(string(data) + time.Now().String())
 
-	if err = ts.previewDao.Save(ctx, key, preview, ts.env.PreviewExpiryTime*time.Second); err != nil {
+	if err = ts.previewDao.Save(ctx, key, preview, ts.env.PreviewExpiryTime); err != nil {
 		ts.logger.Warn("save failed,", err)
 		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
@@ -254,8 +258,8 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 	if err = locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, key),
-		ts.env.PreviewExpiryTime*time.Second,
-		ts.env.LockWaitDuration*time.Microsecond,
+		ts.env.PreviewExpiryTime,
+		ts.env.LockWaitDuration,
 	); err != nil {
 		ts.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_TRANSFER_CONFIRM, key), err)
 		err = ts.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
@@ -501,6 +505,20 @@ func (ts *TransferService) TransferConfirm(ctx context.Context, key string, pinC
 		return
 	}
 
+	traceID := ctx.Value(common.CTX_KEY_TRACE_ID)
+	msg := &common.Msg{
+		OP:       common.MSG_OPCODE_INFUND,
+		MsgID:    traceID.(string),
+		RecordID: orderNO,
+		Subject:  "Get Infund",
+		Msg:      fmt.Sprintf("Received %s %s from %s. order no: %s", preview.ToAmount, preview.ToCurrency, user.Email, orderNO),
+		UserID:   preview.ToUserID,
+	}
+	err = ts.mq.Push(ctx, utils.GetQueueKey("websocket"), msg)
+	if err != nil {
+		ts.logger.Warn("push failed,", err)
+	}
+
 	ts.logger.Infof("transfered, wallet ID: [%d] -> [%d], order NO: [%s]", preview.FromWalletID, preview.ToWalletID, orderNO)
 
 	return
@@ -525,8 +543,8 @@ func (ts *TransferService) createWallet(ctx context.Context, currency common.Cur
 	if err := locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)),
-		ts.env.LockDuration*time.Microsecond,
-		ts.env.LockWaitDuration*time.Microsecond,
+		ts.env.LockDuration,
+		ts.env.LockWaitDuration,
 	); err != nil {
 		ts.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err

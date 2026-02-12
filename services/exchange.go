@@ -132,7 +132,11 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_TARGET)
 		return
 	}
-	if toWallet.Type == common.ASSET_TYPE_FIAT {
+	if toWallet.Type != common.ASSET_TYPE_FIAT {
+		err = es.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_TARGET)
+		return
+	}
+	if fromWallet.ID == toWallet.ID {
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_INVALID_TARGET)
 		return
 	}
@@ -157,7 +161,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
 	}
-	exchangeRate.Purpose = common.RATE_PURPOSE_FEE
+	exchangeRate.Purpose = common.RATE_PURPOSE_EXCHANGE
 	rates := []*common.ExchangeRate{exchangeRate}
 
 	// 檢查使用者資產是否足夠進行交換
@@ -223,7 +227,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 		FromAmount:     fromAmount,
 		ExchangeFee:    exchangeFee,
 		Rates:          rates,
-		ExpiredAt:      time.Now().Add(es.env.PreviewExpiryTime * time.Second),
+		ExpiredAt:      time.Now().Add(es.env.PreviewExpiryTime),
 	}
 
 	preview.ToAmount = fromAmount.Sub(preview.ExchangeFee).Div(exchangeRate.Rate)
@@ -240,17 +244,17 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 	}
 
 	for _, conf := range currencyConfigs {
-		if conf.CurrencyType == fromWallet.Currency {
+		if conf.Currency == fromWallet.Currency {
 			fromPlaces = conf.Decimals
 		}
-		if conf.CurrencyType == toWallet.Currency {
+		if conf.Currency == toWallet.Currency {
 			toPlaces = conf.Decimals
 		}
 	}
 
-	preview.FromAmount = preview.FromAmount.Round(int32(fromPlaces))
-	preview.ToAmount = preview.ToAmount.Round(int32(toPlaces))
-	preview.ExchangeFee = preview.ExchangeFee.Round(int32(fromPlaces))
+	preview.FromAmount = preview.FromAmount.RoundFloor(int32(fromPlaces))
+	preview.ToAmount = preview.ToAmount.RoundFloor(int32(toPlaces))
+	preview.ExchangeFee = preview.ExchangeFee.RoundFloor(int32(fromPlaces))
 
 	data, err := json.Marshal(preview)
 	if err != nil {
@@ -261,7 +265,7 @@ func (es *ExchangeService) ExchangePreview(ctx context.Context,
 
 	key = utils.Md5String(string(data) + time.Now().String())
 
-	if err2 := es.previewDao.Save(ctx, key, preview, es.env.PreviewExpiryTime*time.Second); err2 != nil {
+	if err2 := es.previewDao.Save(ctx, key, preview, es.env.PreviewExpiryTime); err2 != nil {
 		es.logger.Warn("save failed,", err2)
 		err = es.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)
 		return
@@ -276,8 +280,8 @@ func (es *ExchangeService) ExchangeConfirm(ctx context.Context, key string, user
 	if err = locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, key),
-		es.env.PreviewExpiryTime*time.Second,
-		es.env.LockWaitDuration*time.Microsecond,
+		es.env.PreviewExpiryTime,
+		es.env.LockWaitDuration,
 	); err != nil {
 		es.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_EXCHANGE_CONFIRM, key), err)
 		return
@@ -545,8 +549,8 @@ func (es *ExchangeService) createWallet(ctx context.Context, currency common.Cur
 	if err := locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)),
-		es.env.LockDuration*time.Microsecond,
-		es.env.LockWaitDuration*time.Microsecond,
+		es.env.LockDuration,
+		es.env.LockWaitDuration,
 	); err != nil {
 		es.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err

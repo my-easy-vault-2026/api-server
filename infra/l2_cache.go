@@ -22,8 +22,8 @@ const (
 )
 
 type L2CacheConfig struct {
-	Level         []L2CacheLevel
-	ExpireSeconds time.Duration
+	Level      []L2CacheLevel
+	ExpiryTime time.Duration
 }
 
 // 僅支援select單表查詢
@@ -81,7 +81,7 @@ func L2CQuery[T any](ctx context.Context, db *gorm.DB, rd Redis, qf func(tx *gor
 			value = string(resJSON)
 		}
 
-		if err := rd.SetEx(ctx, utils.GetL2CacheKey(table, sql), value, config.ExpireSeconds*time.Second).Err(); err != nil {
+		if err := rd.SetEx(ctx, utils.GetL2CacheKey(table, sql), value, config.ExpiryTime).Err(); err != nil {
 			fmt.Printf("redis cache failed: [%s], ", utils.GetL2CacheKey(table, sql), err)
 			return
 		}
@@ -101,12 +101,12 @@ func L2CQuery[T any](ctx context.Context, db *gorm.DB, rd Redis, qf func(tx *gor
 				fmt.Printf("redis sadd failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}
-			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpireSeconds*time.Second).Err(); err != nil {
+			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpiryTime).Err(); err != nil {
 				fmt.Printf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}
-		case ret.Val() <= config.ExpireSeconds*time.Second:
-			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpireSeconds*time.Second).Err(); err != nil {
+		case ret.Val() <= config.ExpiryTime:
+			if err := rd.Expire(ctx, utils.GetL2CacheKeysKey(table), config.ExpiryTime).Err(); err != nil {
 				fmt.Printf("redis expire failed: [%s], %v", utils.GetL2CacheKeysKey(table), err)
 				return
 			}

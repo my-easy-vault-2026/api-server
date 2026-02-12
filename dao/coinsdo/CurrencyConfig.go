@@ -19,7 +19,7 @@ import (
 type CurrencyConfig struct {
 	ID               uint64
 	Type             common.AssetType
-	CurrencyType     common.Currency
+	Currency         common.Currency
 	CurrencyName     string
 	CurrencyFullName string
 	CurrencyStatus   common.CurrencyConfigStatus
@@ -88,8 +88,8 @@ func (cc *CurrencyConfigDao) GetCryptoCurrencies(ctx context.Context) ([]*Curren
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: cc.env.L2CacheExpire,
 		})
 }
 
@@ -120,8 +120,8 @@ func (cc *CurrencyConfigDao) ListByType(ctx context.Context, t common.AssetType)
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: cc.env.L2CacheExpire,
 		})
 }
 
@@ -150,8 +150,8 @@ func (cc *CurrencyConfigDao) ListByCurrencies(ctx context.Context, currencies []
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: cc.env.L2CacheExpire,
 		})
 }
 
@@ -178,8 +178,8 @@ func (cc *CurrencyConfigDao) ListDisplayDecimalsByDistCurrencies(ctx context.Con
 			}
 			return result, nil
 		}, &infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: cc.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: cc.env.L2CacheExpire,
 		})
 }
 
@@ -214,7 +214,7 @@ func (cc *CurrencyConfigDao) queryChain(query *CurrencyConfigQuery) func(db *gor
 		}
 
 		if query.CurrencyIn != nil {
-			db.Scopes(cc.inScope("currency_type", query.CurrencyIn))
+			db.Scopes(cc.inScope("currency", query.CurrencyIn))
 		}
 
 		if query.Select != nil {

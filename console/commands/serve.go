@@ -7,6 +7,7 @@ import (
 	"api-server/lib"
 	"api-server/mq"
 	"api-server/workers"
+	"sync"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -64,31 +65,42 @@ func (s *ServeCommand) Run() lib.CommandRunner {
 				p.Logger.Error(err.Error())
 			}
 		}
-		p.Logger.Info("Running server")
-		if p.Env.ServerPort == "" {
-			if err := p.ApiRouter.Run(); err != nil {
-				p.Logger.Fatal(err)
-				return
-			}
-		} else {
-			if err := p.ApiRouter.Run(":" + p.Env.ServerPort); err != nil {
-				p.Logger.Fatal(err)
-				return
-			}
-		}
 
-		p.Logger.Info("Running webocket server")
-		if p.Env.WSServerPort == "" {
-			if err := p.WebsocketRouter.Run(); err != nil {
-				p.Logger.Fatal(err)
-				return
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		go func() {
+
+			p.Logger.Info("Running server")
+			if p.Env.ServerPort == "" {
+				if err := p.ApiRouter.Run(); err != nil {
+					p.Logger.Fatal(err)
+					return
+				}
+			} else {
+				if err := p.ApiRouter.Run(":" + p.Env.ServerPort); err != nil {
+					p.Logger.Fatal(err)
+					return
+				}
 			}
-		} else {
-			if err := p.WebsocketRouter.Run(":" + p.Env.WSServerPort); err != nil {
-				p.Logger.Fatal(err)
-				return
+			wg.Done()
+		}()
+
+		go func() {
+			p.Logger.Info("Running webocket server")
+			if p.Env.WSServerPort == "" {
+				if err := p.WebsocketRouter.Run(); err != nil {
+					p.Logger.Fatal(err)
+					return
+				}
+			} else {
+				if err := p.WebsocketRouter.Run(":" + p.Env.WSServerPort); err != nil {
+					p.Logger.Fatal(err)
+					return
+				}
 			}
-		}
+			wg.Done()
+		}()
+		wg.Wait()
 	}
 }
 

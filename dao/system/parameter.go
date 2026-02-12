@@ -99,8 +99,8 @@ func (ad *ParameterDao) ListByKeys(ctx context.Context, keys []common.ParameterK
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: ad.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 
@@ -132,8 +132,8 @@ func (ad *ParameterDao) GetByKey(ctx context.Context, key common.ParameterKey) (
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: ad.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 

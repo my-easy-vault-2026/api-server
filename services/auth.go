@@ -124,7 +124,7 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user *userDao.User
 	key := utils.Md5String(email + time.Now().String())
 	wsToken := utils.Md5String("websocket" + email + time.Now().String())
 	issuedAt := time.Now()
-	expiredAt := issuedAt.Add(time.Hour * as.env.TokenExpireTime)
+	expiredAt := issuedAt.Add(as.env.TokenExpireTime)
 	token := &authDao.Token{
 		UserID:    user.ID,
 		GroupIDs:  make([]uint64, 0),
@@ -156,7 +156,7 @@ func (as *AuthService) GenerateAuthToken(ctx context.Context, user *userDao.User
 	}
 
 	wsKey := utils.GetWsTokenRedisKey(common.ROLE_USER, wsToken)
-	err = as.redis.Set(ctx, wsKey, token.UserID, time.Hour*as.env.TokenExpireTime).Err()
+	err = as.redis.Set(ctx, wsKey, token.UserID, as.env.TokenExpireTime).Err()
 	if err != nil {
 		as.logger.Warn("save failed", err)
 		return "", time.Time{}, as.beBuilder.NewBusinessError(ctx, common.CODE_SYSTEM_ERROR)

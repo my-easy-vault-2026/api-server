@@ -44,7 +44,7 @@ func (cs *CoinsdoService) ListDisplayDecimals(ctx context.Context) (map[common.C
 	decimals := make(map[common.Currency]int)
 
 	for _, currency := range currencies {
-		decimals[currency.CurrencyType] = currency.Decimals
+		decimals[currency.Currency] = currency.Decimals
 	}
 
 	return decimals, nil

@@ -184,6 +184,7 @@ func (wh *WalletHandler) ListWallets(c *gin.Context) {
 			Amount:     assetMap[wallet.ID].Copy(),
 			Nation:     wallet.Nation,
 			Currency:   wallet.Currency.String(),
+			Status:     wallet.Status,
 			CreatedAt:  wallet.CreatedAt.UnixMilli(),
 			UpdatedAt:  wallet.UpdatedAt.UnixMilli(),
 		}

@@ -49,7 +49,7 @@ func (pd *TokenDao) Save(ctx context.Context, key string, token *Token, expirati
 		return err
 	}
 
-	redisKey = utils.GetLoginDataRedisKey(token.UserID, key)
+	redisKey = utils.GetLoginDataRedisKey(token.UserID)
 
 	// Store the JSON data in Redis using the provided key
 	err = pd.redis.Set(ctx, redisKey, tokenJSON, loginDataExpiration).Err()
@@ -78,7 +78,7 @@ func (pd *TokenDao) Get(ctx context.Context, key string) (*Token, error) {
 		return nil, err
 	}
 
-	redisKey = utils.GetLoginDataRedisKey(userID, key)
+	redisKey = utils.GetLoginDataRedisKey(userID)
 	previewJSON, err := pd.redis.Get(ctx, redisKey).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, nil

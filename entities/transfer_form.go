@@ -3,13 +3,13 @@ package entities
 import "github.com/shopspring/decimal"
 
 type TransferPreviewForm struct {
-	FromWalletID uint64          `json:"fromWalletId,string" validate:"required"`
-	ToUserID     uint64          `json:"toUserId,string"`
-	ToEmail      string          `json:"toEmail" validate:"omitempty,email"`
-	FromAmount   decimal.Decimal `json:"fromAmount,string" validate:"required"`
+	FromWalletID uint64          `form:"fromWalletId,string" validate:"required"`
+	ToUserID     uint64          `form:"toUserId,string"`
+	ToEmail      string          `form:"toEmail" validate:"omitempty,email"`
+	FromAmount   decimal.Decimal `form:"fromAmount,string" validate:"required"`
 }
 
 type TransferConfirmForm struct {
-	Key     string `json:"transferKey" validate:"required"`
-	PinCode string `json:"pinCode" validate:"required"`
+	Key     string `form:"key" validate:"required"`
+	PinCode string `form:"pinCode" validate:"required"`
 }

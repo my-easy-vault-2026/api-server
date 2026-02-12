@@ -91,8 +91,8 @@ func (md *CategoryDao) GetByID(ctx context.Context, id uint64) (*Category, error
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: md.env.L2CacheExpire,
 		})
 }
 
@@ -117,8 +117,8 @@ func (md *CategoryDao) List(ctx context.Context) ([]*Category, error) {
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: md.env.L2CacheExpire,
 		})
 }
 
@@ -143,8 +143,8 @@ func (md *CategoryDao) Gets(ctx context.Context, query *CategoryQuery) ([]*Categ
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: md.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: md.env.L2CacheExpire,
 		})
 }
 

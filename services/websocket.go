@@ -6,7 +6,6 @@ import (
 	"context"
 	"shared-modules/common"
 	"shared-modules/utils"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -54,7 +53,7 @@ func (ws *WebsocketService) Connect(ctx context.Context, conn *websocket.Conn, u
 		return ws.beBuilder.NewBusinessError(ctx, common.CODE_CREATE_WEBSOCKET_CHANNEL_FAILED)
 	}
 
-	err = ws.redis.Set(ctx, utils.GetWebsocketNodeKey(userID), ws.env.GoNode, ws.env.PingPeriod*time.Millisecond*2).Err()
+	err = ws.redis.Set(ctx, utils.GetWebsocketNodeKey(userID), ws.env.GoNode, ws.env.PingPeriod*2).Err()
 	if err != nil {
 		return err
 	}

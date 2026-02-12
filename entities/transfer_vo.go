@@ -12,7 +12,7 @@ type TransferPreviewVO struct {
 	FromCurrency   string `json:"fromCurrency"`
 	Fee            string `json:"fee,omitempty"`
 	FeeCurrency    string `json:"feeCurrency"`
-	Key            string `json:"transferKey"`
+	Key            string `json:"key"`
 	ExpiredAt      int64  `json:"expiredAt,string"`
 }
 

@@ -3,7 +3,5 @@ package entities
 import "shared-modules/common"
 
 type GetExchangeRateForm struct {
-	BaseCurrencies  []string           `json:"baseCurrencies" validate:"required"`
-	QuoteCurrencies []string           `json:"quoteCurrencies" validate:"required"`
-	Purpose         common.RatePurpose `json:"purpose"` //
+	Purpose common.RatePurpose `json:"purpose"`
 }

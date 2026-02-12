@@ -54,6 +54,7 @@ func (ah *ApiAuthorityMiddleWare) checkAPIAuth(c *gin.Context, url string, key s
 		return err
 	}
 	if token == nil {
+		c.Set(common.CTX_KEY_AUTH_AUTHS, auths)
 		return nil
 	}
 

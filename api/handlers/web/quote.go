@@ -29,7 +29,7 @@ func NewQuoteHandler(quoteService *services.QuoteService, logger lib.Logger, beB
 
 // @Param   quote   path   string   true   "Quote currency"
 // @Param   base    path   string   true   "Base currency"
-// @Param			request			body		entities.GetExchangeRateForm	true	"body"
+// @Param	purpose	query		int		true	"Purpose"
 // @Param			X-Token			header		string							true	"User token"
 // @Param			Accept-Language	header		string							false	"accept language"
 // @Success		0				{object}	entities.ListExchangeRateVO		"data"
@@ -41,6 +41,13 @@ func (qh *QuoteHandler) GetExchange(c *gin.Context) {
 	err := c.ShouldBindQuery(form)
 	if err != nil {
 		qh.httpRes.ReError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	validate := validator.New(validator.WithRequiredStructEnabled())
+
+	if err := validate.Struct(form); err != nil {
+		qh.httpRes.ReError(c, http.StatusBadRequest, qh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 
@@ -56,12 +63,6 @@ func (qh *QuoteHandler) GetExchange(c *gin.Context) {
 
 	if !base.IsValid() {
 		qh.httpRes.ReError(c, http.StatusBadRequest, qh.beBuilder.NewBusinessError(c, common.CODE_NO_SUCH_CURRENCY))
-		return
-	}
-
-	validate := validator.New(validator.WithRequiredStructEnabled())
-	if err := validate.Struct(form); err != nil {
-		qh.httpRes.ReError(c, http.StatusBadRequest, qh.beBuilder.NewBusinessError(c, common.CODE_REQUEST_BODY_INVALID_FORMAT, err.Error()))
 		return
 	}
 

@@ -72,7 +72,7 @@ func NewWebRouter(
 
 func (wr *WebRouter) Setup() {
 
-	w := wr.apiRouter.Group("/web") // wr.apiAuthorityMiddleWare.Handle(),
+	w := wr.apiRouter.Group("/web", wr.apiAuthorityMiddleWare.Handle(), wr.rateLimitMiddleWare.Handle())
 
 	{
 		w.POST("/auth/loginOrRegister", wr.authHandler.LoginOrRegister)
@@ -82,11 +82,11 @@ func (wr *WebRouter) Setup() {
 
 		w.POST("/wallet", wr.walletHandler.CreateWallet)
 		w.GET("/wallet", wr.appVersionLib.VRHandle(wr.commonHandler.VersionOutdated,
-			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
+			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.8", wr.commonHandler.VersionOutdated),
 			wr.appVersionLib.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListWallets),
 		))
 		w.GET("/wallet/category", wr.appVersionLib.VRHandle(wr.commonHandler.VersionOutdated,
-			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.9", wr.commonHandler.VersionOutdated),
+			wr.appVersionLib.NewVRFunc("1.0.0", "1.1.8", wr.commonHandler.VersionOutdated),
 			wr.appVersionLib.NewVRFunc("1.1.9", "9.9.9", wr.walletHandler.ListCategory),
 		))
 

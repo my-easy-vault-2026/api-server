@@ -30,19 +30,6 @@ func NewRateLimitMiddleWare(authService *services.AuthService, logger lib.Logger
 func (rl *RateLimitMiddleWare) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 
-		var token *authDao.Token
-		tokenAny, ok := c.Get(common.CTX_KEY_AUTH_TOKEN)
-		if ok {
-			token, ok = tokenAny.(*authDao.Token)
-			if !ok {
-				rl.logger.Warn("token parse failed,", tokenAny)
-				rl.httpRes.ReError(c, http.StatusUnauthorized, rl.beBuilder.NewBusinessError(c, common.CODE_NO_PERMISSION))
-				c.Abort()
-				return
-			}
-
-		}
-
 		authsAny, ok := c.Get(common.CTX_KEY_AUTH_AUTHS)
 		if !ok {
 			rl.logger.Warn("no auths")
@@ -56,6 +43,29 @@ func (rl *RateLimitMiddleWare) Handle() gin.HandlerFunc {
 			rl.httpRes.ReError(c, http.StatusUnauthorized, rl.beBuilder.NewBusinessError(c, common.CODE_NO_PERMISSION))
 			c.Abort()
 			return
+		}
+
+		needToken := true
+		for _, auth := range auths {
+			if auth.Role == common.ROLE_GUEST {
+				needToken = false
+				break
+			}
+		}
+
+		var token *authDao.Token
+		if needToken {
+			tokenAny, ok := c.Get(common.CTX_KEY_AUTH_TOKEN)
+			if ok {
+				token, ok = tokenAny.(*authDao.Token)
+				if !ok {
+					rl.logger.Warn("token parse failed,", tokenAny)
+					rl.httpRes.ReError(c, http.StatusUnauthorized, rl.beBuilder.NewBusinessError(c, common.CODE_NO_PERMISSION))
+					c.Abort()
+					return
+				}
+
+			}
 		}
 
 		err := rl.checkRateLimit(c, token, auths)

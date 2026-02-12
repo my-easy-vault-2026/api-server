@@ -46,7 +46,6 @@ func NewI18N(env *Env, logger Logger) *I18N {
 	bundle.MustLoadMessageFile(configPath + "zh_hans.toml")
 	i18.Bundles["zh_cn"] = bundle
 	i18.Bundles["zh-cn"] = bundle
-	i18.Bundles["zh"] = bundle
 	i18.Bundles["zh_hans"] = bundle
 	i18.Bundles["zh-hans"] = bundle
 
@@ -55,6 +54,7 @@ func NewI18N(env *Env, logger Logger) *I18N {
 	bundle.MustLoadMessageFile(configPath + "zh_hant.toml")
 	i18.Bundles["zh_tw"] = bundle
 	i18.Bundles["zh-tw"] = bundle
+	i18.Bundles["zh"] = bundle
 	i18.Bundles["zh_hant"] = bundle
 	i18.Bundles["zh-hant"] = bundle
 
@@ -102,7 +102,7 @@ func NewI18N(env *Env, logger Logger) *I18N {
 	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
 	bundle.MustLoadMessageFile(configPath + "ar.toml")
 	i18.Bundles["ar"] = bundle
-	return nil
+	return i18
 }
 
 func (i *I18N) Translate(ctx context.Context, msg common.TranslateMsg, value ...string) string {

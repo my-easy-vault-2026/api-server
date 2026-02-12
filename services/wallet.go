@@ -9,7 +9,6 @@ import (
 	"shared-modules/common"
 	"shared-modules/utils"
 	"strconv"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -89,8 +88,8 @@ func (ws *WalletService) CreateWallet(ctx context.Context, categoryID uint64, us
 	if err := locker.WaitLock(
 		ctx,
 		utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)),
-		ws.env.LockDuration*time.Microsecond,
-		ws.env.LockWaitDuration*time.Microsecond,
+		ws.env.LockDuration,
+		ws.env.LockWaitDuration,
 	); err != nil {
 		ws.logger.Warnf("lock failed: [%s], #v", utils.GetGlobalLockKey(common.LOCK_PURPOSE_CREATE_WALLET, strconv.FormatUint(userID, 10), strconv.FormatUint(categoryID, 10)), err)
 		return 0, err

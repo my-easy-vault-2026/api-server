@@ -82,8 +82,8 @@ func (ad *APIAuthorityDao) List(ctx context.Context) ([]*APIAuthority, error) {
 		return result, nil
 	},
 		&infra.L2CacheConfig{
-			Level:         []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
-			ExpireSeconds: ad.env.L2CacheExpire,
+			Level:      []infra.L2CacheLevel{infra.L2_CACHE_LEVEL_REDIS},
+			ExpiryTime: ad.env.L2CacheExpire,
 		})
 }
 
