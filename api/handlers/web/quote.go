@@ -34,7 +34,7 @@ func NewQuoteHandler(quoteService *services.QuoteService, logger lib.Logger, beB
 // @Param	purpose	query		int		true	"Purpose"
 // @Param			X-Token			header		string							true	"User token"
 // @Param			Accept-Language	header		string							false	"accept language"
-// @Success		0				{object}	entities.ListExchangeRateVO		"data"
+// @Success		0				{object}	entities.ExchangeRateVO		"data"
 // @Router			/web/quote/exchangeRate/:quote/:base [get]
 // @Tags			web/quote
 func (qh *QuoteHandler) GetExchange(c *gin.Context) {

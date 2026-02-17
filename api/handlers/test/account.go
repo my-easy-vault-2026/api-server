@@ -45,10 +45,9 @@ func NewAccountHandler(accountService *services.AccountService,
 	}
 }
 
-// @Param			request			body		entities.ListAssetsForm	true	"body"
+// @Param			request			body		entities.AddAssetsForm	true	"body"
 // @Param			X-Token			header		string					true	"User token"
 // @Param			Accept-Language	header		string					false	"accept language"
-// @Success		0				{object}	entities.ListAssetsVO	"data"
 // @Router			/test/account/addAssets [post]
 // @Tags			test/account
 func (ah *AccountHandler) AddAssets(c *gin.Context) {

@@ -48,7 +48,7 @@ func NewWebsocketHandler(websockerService *services.WebsocketService,
 // @Tags			web/websocket
 // @Param			X-Token			header	string						true	"User token"
 // @Param			Accept-Language	header	string						false	"accept language"
-// @Router			/web/websocket/connect/*token [get]
+// @Router			/web/websocket/connect/:token [get]
 func (wh *WebsocketHandler) Connect(c *gin.Context) {
 
 	token := c.Param("token")
