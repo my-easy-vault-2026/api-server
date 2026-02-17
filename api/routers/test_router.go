@@ -50,17 +50,18 @@ func (tr *TestRouter) Setup() {
 
 	if tr.env.Environment == "local" ||
 		tr.env.Environment == "dev" {
+		tr.apiRouter.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+		tr.apiRouter.GET("/docs/doc.json", func(ctx *gin.Context) {
+			ctx.Writer.Header().Set("Content-Type", "application/json")
+			ctx.Writer.WriteHeader(200)
+			ctx.Writer.Write([]byte(docs.SwaggerInfo.ReadDoc()))
+		})
 		t := tr.apiRouter.Group("/test")
 		{
 
 			t.POST("/account/addAssets", tr.accountHandler.AddAssets)
 			t.POST("/test/forTest", tr.testHandler.ForTest)
-			t.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
-			t.GET("/docs/doc.json", func(ctx *gin.Context) {
-				ctx.Writer.Header().Set("Content-Type", "application/json")
-				ctx.Writer.WriteHeader(200)
-				ctx.Writer.Write([]byte(docs.SwaggerInfo.ReadDoc()))
-			})
+
 		}
 	}
 }

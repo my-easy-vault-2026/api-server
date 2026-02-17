@@ -18,6 +18,11 @@ docker run --name local-redis-7.2 -p 6379:6379 -d redis:7.2
 # http://localhost:8081/test/swagger/index.html
 ```
 
+## docker compose
+```
+docker-compose -f docker/docker-compose.yml up -d
+```
+
 ## 備註
 
 1. stringer

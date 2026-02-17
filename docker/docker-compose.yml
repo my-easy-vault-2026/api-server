@@ -1,4 +1,4 @@
-services:
+services: 
   api:
     build:
       context: ..
@@ -12,8 +12,10 @@ services:
       - "8082:8081"
       - "9444:9443"
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   mysql:
@@ -21,11 +23,21 @@ services:
     container_name: easy_vault_mysql
     environment:
       MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_ROOT_HOST: "%"
       MYSQL_DATABASE: easy_vault
     ports:
       - "3312:3306"
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     # volumes:
     #   - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p123456"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
   redis:
