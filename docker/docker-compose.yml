@@ -5,9 +5,9 @@ services:
       dockerfile: docker/Dockerfile
     container_name: easy_vault_api
     environment:
-      CONFIG_FILE: /app/.env.docker
-    volumes:
-      - ./.env:/app/.env.docker:ro
+      CONFIG_FILE: /app/.env
+    # volumes:
+    #   - ./.env:/app/.env.docker:ro
     ports:
       - "8081:8081"
       - "9443:9443"
@@ -23,9 +23,9 @@ services:
       MYSQL_ROOT_PASSWORD: 123456
       MYSQL_DATABASE: easy_vault
     ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
+      - "3312:3306"
+    # volumes:
+    #   - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
   redis:
@@ -33,11 +33,11 @@ services:
     container_name: easy_vault_redis
     command: ["redis-server", "--requirepass", "123456"]
     ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+      - "6380:6379"
+    # volumes:
+    #   - redis_data:/data
     restart: unless-stopped
 
-volumes:
-  mysql_data:
-  redis_data:
+# volumes:
+#   mysql_data:
+#   redis_data:

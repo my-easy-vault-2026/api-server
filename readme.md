@@ -1,8 +1,21 @@
 # easy vault api server
 
-## build
+## docker build
 ```
-docker build -f ./docker/Dockerfile -t easy_vault:1.0.0 .
+docker rmi -f easy_vault:internal
+docker build -f ./docker/Dockerfile.internal -t easy_vault:internal .
+```
+
+## local env
+```
+docker stop easy_vault
+docker rm easy_vault
+docker run -p 8081:8081 -p 9443:9443 --name easy_vault easy_vault:internal 
+docker run -p 3311:3306 --name mysql8 -e MYSQL_ROOT_PASSWORD=123456 -d mysql:8.1.0 --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+docker run --name local-redis-7.2 -p 6379:6379 -d redis:7.2
+	
+# 如果要連線本機 .env裡的ip要換成host.docker.internal
+# http://localhost:8081/swagger/index.html
 ```
 
 ## 開發規範細節

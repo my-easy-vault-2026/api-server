@@ -1,14 +1,17 @@
-FROM golang:1.21-bullseye-slim AS builder
+FROM golang:1.25-rc-bullseye AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache git
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
+# 建議在 Dockerfile 的 builder 階段用這樣的 buildkit mount
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/easy_vault_api main.go
 RUN cp -r $(go env GOMODCACHE)/github.com/my-easy-vault-2026/shared-modules@*/lang ./lang
 
@@ -20,7 +23,7 @@ WORKDIR /app
 
 COPY --from=builder /bin/easy_vault_api /app/easy_vault_api
 COPY --from=builder /app/lang /app/lang
-COPY /docker/.env /app/.env
+COPY /docker/.env-internal /app/.env
 
 EXPOSE 8081 9443
 

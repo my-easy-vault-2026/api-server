@@ -2,6 +2,7 @@ package lib
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -87,6 +88,11 @@ func NewEnv(logger Logger) *Env {
 	if configFile == "" {
 		configFile = ".env"
 	}
+
+	// let viper read environment variables (they take precedence over config file)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
 	viper.SetConfigFile(configFile)
 
 	err := viper.ReadInConfig()

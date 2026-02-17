@@ -5,7 +5,8 @@ import (
 	middleware "github.com/my-easy-vault-2026/api-server/api/middlewares"
 	"github.com/my-easy-vault-2026/api-server/infra"
 	"github.com/my-easy-vault-2026/api-server/lib"
-
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 )
 
@@ -52,7 +53,7 @@ func (tr *TestRouter) Setup() {
 
 			t.POST("/account/addAssets", tr.accountHandler.AddAssets)
 			t.POST("/test/forTest", tr.testHandler.ForTest)
-
+			t.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 		}
 	}
 }
