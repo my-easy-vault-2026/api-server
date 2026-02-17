@@ -1,9 +1,8 @@
 package main
 
 import (
-	"github.com/my-easy-vault-2026/api-server/bootstrap"
-
 	"github.com/joho/godotenv"
+	"github.com/my-easy-vault-2026/api-server/bootstrap"
 )
 
 // @title Easy Vault API
@@ -19,7 +18,7 @@ import (
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:8081
-// @BasePath /api/v1
+// @BasePath /test
 // @schemes http https
 func main() {
 	_ = godotenv.Load()

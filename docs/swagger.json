@@ -20,7 +20,7 @@
         "version": "1.0"
     },
     "host": "localhost:8081",
-    "basePath": "/api/v1",
+    "basePath": "/test",
     "paths": {
         "/test/account/addAssets": {
             "post": {

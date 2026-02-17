@@ -1,8 +1,10 @@
 package routers
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/my-easy-vault-2026/api-server/api/handlers/test"
 	middleware "github.com/my-easy-vault-2026/api-server/api/middlewares"
+	"github.com/my-easy-vault-2026/api-server/docs"
 	"github.com/my-easy-vault-2026/api-server/infra"
 	"github.com/my-easy-vault-2026/api-server/lib"
 	swaggerFiles "github.com/swaggo/files"
@@ -54,6 +56,11 @@ func (tr *TestRouter) Setup() {
 			t.POST("/account/addAssets", tr.accountHandler.AddAssets)
 			t.POST("/test/forTest", tr.testHandler.ForTest)
 			t.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+			t.GET("/docs/doc.json", func(ctx *gin.Context) {
+				ctx.Writer.Header().Set("Content-Type", "application/json")
+				ctx.Writer.WriteHeader(200)
+				ctx.Writer.Write([]byte(docs.SwaggerInfo.ReadDoc()))
+			})
 		}
 	}
 }
