@@ -56,7 +56,7 @@ func (tr *TestRouter) Setup() {
 			ctx.Writer.WriteHeader(200)
 			ctx.Writer.Write([]byte(docs.SwaggerInfo.ReadDoc()))
 		})
-		t := tr.apiRouter.Group("/test")
+		t := tr.apiRouter.ApiGroup.Group("/test")
 		{
 
 			t.POST("/account/addAssets", tr.accountHandler.AddAssets)

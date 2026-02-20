@@ -72,7 +72,7 @@ func NewWebRouter(
 
 func (wr *WebRouter) Setup() {
 
-	w := wr.apiRouter.Group("/web", wr.apiAuthorityMiddleWare.Handle(), wr.rateLimitMiddleWare.Handle())
+	w := wr.apiRouter.ApiGroup.Group("/web", wr.apiAuthorityMiddleWare.Handle(), wr.rateLimitMiddleWare.Handle())
 
 	{
 		w.POST("/auth/loginOrRegister", wr.authHandler.LoginOrRegister)
@@ -92,7 +92,7 @@ func (wr *WebRouter) Setup() {
 
 		w.GET("/quote/exchangeRate/:quote/:base", wr.quoteHandler.GetExchange)
 
-		w.POST("/order/transaction", wr.orderHandler.PageTransactionRecords)
+		w.GET("/order/transaction", wr.orderHandler.PageTransactionRecords)
 
 		w.GET("/exchange/preview", wr.exchangeHandler.ExchangePreview)
 		w.POST("/exchange/confirm", wr.exchangeHandler.ExchangeConfirm)
@@ -101,7 +101,7 @@ func (wr *WebRouter) Setup() {
 		w.POST("/transfer/confirm", wr.transferHandler.TransferConfirm)
 	}
 
-	ww := wr.websocketRouter.Group("/web")
+	ww := wr.websocketRouter.ApiGroup.Group("/web")
 	{
 		ww.GET("/websocket/connect/*token", wr.websocketHandler.Connect)
 	}

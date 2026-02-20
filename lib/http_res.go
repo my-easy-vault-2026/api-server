@@ -123,7 +123,7 @@ func (h *HttpRes) ReData(c *gin.Context, data interface{}, headers ...map[string
 	}
 
 	c.JSON(200, gin.H{
-		"code": 0,
+		"code": common.CODE_OK,
 		"msg":  "ok",
 		"data": data,
 	})

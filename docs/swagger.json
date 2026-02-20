@@ -19,6 +19,7 @@
         },
         "version": "1.0"
     },
+    "basePath": "/api",
     "paths": {
         "/test/account/addAssets": {
             "post": {

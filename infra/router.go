@@ -15,6 +15,7 @@ import (
 // Router -> Gin Router
 type Router struct {
 	*gin.Engine
+	ApiGroup *gin.RouterGroup
 }
 
 // NewRouter : all the routes are defined here
@@ -61,8 +62,10 @@ func NewAPIRouter(
 		c.JSON(http.StatusOK, gin.H{"data": "API Up and Running"})
 	})
 
+	apiGroup := httpRouter.Group("/api")
 	return Router{
-		httpRouter,
+		Engine:   httpRouter,
+		ApiGroup: apiGroup,
 	}
 }
 
@@ -109,7 +112,9 @@ func NewWebsocketRouter(
 		c.JSON(http.StatusOK, gin.H{"data": "API Up and Running"})
 	})
 
+	apiGroup := httpRouter.Group("/api")
 	return Router{
-		httpRouter,
+		Engine:   httpRouter,
+		ApiGroup: apiGroup,
 	}
 }

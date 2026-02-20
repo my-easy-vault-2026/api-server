@@ -1881,7 +1881,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
-	BasePath:         "",
+	BasePath:         "/api",
 	Schemes:          []string{"http", "https"},
 	Title:            "Easy Vault API",
 	Description:      "Easy Vault API Server",
